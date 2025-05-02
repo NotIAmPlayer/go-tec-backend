@@ -147,8 +147,6 @@ func CreateUser(c *gin.Context) {
 	query := "INSERT INTO mahasiswa (nim, nama_mhs, email, password) VALUES (?, ?, ?, ?)"
 	_, err = config.DB.Exec(query, u.Nim, u.Nama, u.Email, u.Password)
 
-	fmt.Println("Query:", query, "NIM:", u.Nim, "Nama:", u.Nama, "Email:", u.Email, "Password:", u.Password)
-
 	if err != nil {
 		log.Printf("Create user error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -160,10 +158,9 @@ func CreateUser(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "201 - User created successfully",
 		"user": gin.H{
-			"nim":      u.Nim,
-			"nama":     u.Nama,
-			"email":    u.Email,
-			"password": u.Password,
+			"nim":   u.Nim,
+			"nama":  u.Nama,
+			"email": u.Email,
 		},
 	})
 }
