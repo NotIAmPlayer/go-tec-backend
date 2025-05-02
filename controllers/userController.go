@@ -2,11 +2,11 @@ package controllers
 
 import (
 	"database/sql"
-	"fmt"
 	"go-tec-backend/config"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -51,7 +51,7 @@ func GetUsers(c *gin.Context) {
 
 	users := []Users{}
 
-	var query = "SELECT nim, nama_mhs, email FROM mahasiswa LIMIT ? OFFSET ?"
+	query := "SELECT nim, nama_mhs, email FROM mahasiswa LIMIT ? OFFSET ?"
 
 	rows, err := config.DB.Query(query, limit, offset)
 
@@ -62,10 +62,6 @@ func GetUsers(c *gin.Context) {
 		})
 		return
 	}
-
-	fmt.Println("Query:", query, "Limit:", limit, "Offset:", offset, "Row Length:")
-
-	defer rows.Close()
 
 	for rows.Next() {
 		var u Users
@@ -124,7 +120,6 @@ func CreateUser(c *gin.Context) {
 	/*
 		Create a new user in the database from JSON data.
 	*/
-
 	var u Users
 
 	if err := c.ShouldBindJSON(&u); err != nil {
@@ -144,7 +139,7 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	u.Password = string(hash)
+	u.Password = hash
 
 	query := "INSERT INTO mahasiswa (nim, nama_mhs, email, password) VALUES (?, ?, ?, ?)"
 	_, err = config.DB.Exec(query, u.Nim, u.Nama, u.Email, u.Password)
@@ -159,10 +154,131 @@ func CreateUser(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "201 - User created successfully",
-		"user": gin.H{
-			"nim":   u.Nim,
-			"nama":  u.Nama,
-			"email": u.Email,
-		},
+	})
+}
+
+func UpdateUser(c *gin.Context) {
+	/*
+		Update a user by NIM in the database from JSON data.
+		Does not update password.
+	*/
+	nim := c.Param("nim")
+
+	var u Users
+
+	if err := c.ShouldBindJSON(&u); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid JSON data",
+		})
+		return
+	}
+
+	updates := []string{}
+	args := []interface{}{}
+
+	if u.Nama != "" {
+		updates = append(updates, "nama_mhs = ?")
+		args = append(args, u.Nama)
+	}
+
+	if u.Email != "" {
+		updates = append(updates, "email = ?")
+		args = append(args, u.Email)
+	}
+
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - No fields to update",
+		})
+		return
+	}
+
+	args = append(args, nim)
+	query := "UPDATE mahasiswa SET " + strings.Join(updates, ", ") + " WHERE nim = ?"
+
+	_, err := config.DB.Exec(query, args...)
+
+	if err != nil {
+		log.Printf("Update user error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "200 - User updated successfully",
+	})
+}
+
+func UpdateUserPassword(c *gin.Context) {
+	/*
+		Update a user's password by NIM in the database from JSON data.
+	*/
+	nim := c.Param("nim")
+
+	var u Users
+
+	if err := c.ShouldBindJSON(&u); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid JSON data",
+		})
+		return
+	}
+
+	if u.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - No password to update",
+		})
+		return
+	}
+
+	hash, err := hashPassword(u.Password)
+
+	if err != nil {
+		log.Printf("Hashing password error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	u.Password = hash
+
+	query := "UPDATE mahasiswa SET password = ? WHERE nim = ?"
+	_, err = config.DB.Exec(query, u.Password, nim)
+
+	if err != nil {
+		log.Printf("Update user password error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "200 - User password updated successfully",
+	})
+}
+
+func DeleteUser(c *gin.Context) {
+	/*
+		Delete a user by NIM from the database.
+	*/
+	nim := c.Param("nim")
+
+	query := "DELETE FROM mahasiswa WHERE nim = ?"
+	_, err := config.DB.Exec(query, nim)
+
+	if err != nil {
+		log.Printf("Delete user error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "200 - User deleted successfully",
 	})
 }
