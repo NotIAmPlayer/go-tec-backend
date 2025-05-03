@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -149,9 +150,101 @@ func CreateQuestion(c *gin.Context) {
 }
 
 func UpdateQuestion(c *gin.Context) {
+	/*
+		Update a question in the database from JSON data.
+	*/
+	id := c.Param("id")
 
+	var q Questions
+
+	if err := c.ShouldBindJSON(&q); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid JSON data",
+		})
+		return
+	}
+
+	updates := []string{}
+	args := []interface{}{}
+
+	if q.QuestionType != "" && (q.QuestionType == "Listening" || q.QuestionType == "Reading" || q.QuestionType == "Grammar") {
+		updates = append(updates, "tipe_soal = ?")
+		args = append(args, q.QuestionType)
+	}
+
+	if q.QuestionText != "" {
+		updates = append(updates, "isi_soal = ?")
+		args = append(args, q.QuestionText)
+	}
+
+	if q.ChoiceA != "" {
+		updates = append(updates, "pilihan_1 = ?")
+		args = append(args, q.ChoiceA)
+	}
+
+	if q.ChoiceB != "" {
+		updates = append(updates, "pilihan_2 = ?")
+		args = append(args, q.ChoiceB)
+	}
+
+	if q.ChoiceC != "" {
+		updates = append(updates, "pilihan_3 = ?")
+		args = append(args, q.ChoiceC)
+	}
+
+	if q.ChoiceD != "" {
+		updates = append(updates, "pilihan_4 = ?")
+		args = append(args, q.ChoiceD)
+	}
+
+	if q.Answer != "" {
+		updates = append(updates, "kunci_jawaban = ?")
+		args = append(args, q.Answer)
+	}
+
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - No fields to update",
+		})
+		return
+	}
+
+	args = append(args, id)
+	query := "UPDATE soal SET " + strings.Join(updates, ", ") + " WHERE id_soal = ?"
+
+	_, err := config.DB.Exec(query, args...)
+
+	if err != nil {
+		log.Printf("Update question error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "200 - Question updated successfully",
+	})
 }
 
 func DeleteQuestion(c *gin.Context) {
+	/*
+		Delete a question from the database.
+	*/
+	id := c.Param("id")
 
+	query := "DELETE FROM soal WHERE id_soal = ?"
+	_, err := config.DB.Exec(query, id)
+
+	if err != nil {
+		log.Printf("Delete question error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "200 - Question deleted successfully",
+	})
 }

@@ -159,7 +159,7 @@ func CreateUser(c *gin.Context) {
 
 func UpdateUser(c *gin.Context) {
 	/*
-		Update a user by NIM in the database from JSON data.
+		Update a user in the database from JSON data.
 		Does not update password.
 	*/
 	nim := c.Param("nim")
@@ -263,7 +263,7 @@ func UpdateUserPassword(c *gin.Context) {
 
 func DeleteUser(c *gin.Context) {
 	/*
-		Delete a user by NIM from the database.
+		Delete a user from the database.
 	*/
 	nim := c.Param("nim")
 
