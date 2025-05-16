@@ -36,12 +36,20 @@ func GetQuestions(c *gin.Context) {
 		return
 	}
 
-	var limit = 20
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	if err != nil || limit < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid page size number",
+		})
+		return
+	}
+
 	var offset = (page - 1) * limit
 
 	questions := []Questions{}
 
-	query := "SELECT id_soal, tipe_soal, isi_soal, pilihan_1, pilihan_2, pilihan_3, pilihan_4, kunci_jawaban FROM soal LIMIT ? OFFSET ?"
+	query := "SELECT idSoal, tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban FROM soal LIMIT ? OFFSET ?"
 
 	rows, err := config.DB.Query(query, limit, offset)
 
@@ -92,7 +100,7 @@ func GetQuestion(c *gin.Context) {
 
 	var q Questions
 
-	query := "SELECT id_soal, tipe_soal, isi_soal, pilihan_1, pilihan_2, pilihan_3, pilihan_4, kunci_jawaban FROM soal WHERE id_soal = ?"
+	query := "SELECT idSoal, tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban FROM soal WHERE idSoal = ?"
 
 	row := config.DB.QueryRow(query, id)
 
@@ -133,7 +141,7 @@ func CreateQuestion(c *gin.Context) {
 		return
 	}
 
-	query := "INSERT INTO soal (tipe_soal, isi_soal, pilihan_1, pilihan_2, pilihan_3, pilihan_4, kunci_jawaban) VALUES (?, ?, ?, ?, ?, ?, ?)"
+	query := "INSERT INTO soal (tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban) VALUES (?, ?, ?, ?, ?, ?, ?)"
 	_, err := config.DB.Exec(query, q.QuestionType, q.QuestionText, q.ChoiceA, q.ChoiceB, q.ChoiceC, q.ChoiceD, q.Answer)
 
 	if err != nil {
@@ -168,37 +176,37 @@ func UpdateQuestion(c *gin.Context) {
 	args := []interface{}{}
 
 	if q.QuestionType != "" && (q.QuestionType == "Listening" || q.QuestionType == "Reading" || q.QuestionType == "Grammar") {
-		updates = append(updates, "tipe_soal = ?")
+		updates = append(updates, "tipeSoal = ?")
 		args = append(args, q.QuestionType)
 	}
 
 	if q.QuestionText != "" {
-		updates = append(updates, "isi_soal = ?")
+		updates = append(updates, "isiSoal = ?")
 		args = append(args, q.QuestionText)
 	}
 
 	if q.ChoiceA != "" {
-		updates = append(updates, "pilihan_1 = ?")
+		updates = append(updates, "pilihanA = ?")
 		args = append(args, q.ChoiceA)
 	}
 
 	if q.ChoiceB != "" {
-		updates = append(updates, "pilihan_2 = ?")
+		updates = append(updates, "pilihanB = ?")
 		args = append(args, q.ChoiceB)
 	}
 
 	if q.ChoiceC != "" {
-		updates = append(updates, "pilihan_3 = ?")
+		updates = append(updates, "pilihanC = ?")
 		args = append(args, q.ChoiceC)
 	}
 
 	if q.ChoiceD != "" {
-		updates = append(updates, "pilihan_4 = ?")
+		updates = append(updates, "pilihanD = ?")
 		args = append(args, q.ChoiceD)
 	}
 
 	if q.Answer != "" {
-		updates = append(updates, "kunci_jawaban = ?")
+		updates = append(updates, "jawaban = ?")
 		args = append(args, q.Answer)
 	}
 
@@ -210,7 +218,7 @@ func UpdateQuestion(c *gin.Context) {
 	}
 
 	args = append(args, id)
-	query := "UPDATE soal SET " + strings.Join(updates, ", ") + " WHERE id_soal = ?"
+	query := "UPDATE soal SET " + strings.Join(updates, ", ") + " WHERE idSoal = ?"
 
 	_, err := config.DB.Exec(query, args...)
 
@@ -233,7 +241,7 @@ func DeleteQuestion(c *gin.Context) {
 	*/
 	id := c.Param("id")
 
-	query := "DELETE FROM soal WHERE id_soal = ?"
+	query := "DELETE FROM soal WHERE idSoal = ?"
 	_, err := config.DB.Exec(query, id)
 
 	if err != nil {

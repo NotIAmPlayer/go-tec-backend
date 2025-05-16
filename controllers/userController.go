@@ -46,12 +46,20 @@ func GetUsers(c *gin.Context) {
 		return
 	}
 
-	var limit = 20
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	if err != nil || limit < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid page size number",
+		})
+		return
+	}
+
 	var offset = (page - 1) * limit
 
 	users := []Users{}
 
-	query := "SELECT nim, nama_mhs, email FROM mahasiswa LIMIT ? OFFSET ?"
+	query := "SELECT nim, namaMhs, email FROM mahasiswa LIMIT ? OFFSET ?"
 
 	rows, err := config.DB.Query(query, limit, offset)
 
@@ -95,7 +103,7 @@ func GetUser(c *gin.Context) {
 
 	var u Users
 
-	query := "SELECT nim, nama_mhs, email FROM mahasiswa WHERE nim = ?"
+	query := "SELECT nim, namaMhs, email FROM mahasiswa WHERE nim = ?"
 
 	row := config.DB.QueryRow(query, nim)
 
@@ -141,7 +149,7 @@ func CreateUser(c *gin.Context) {
 
 	u.Password = hash
 
-	query := "INSERT INTO mahasiswa (nim, nama_mhs, email, password) VALUES (?, ?, ?, ?)"
+	query := "INSERT INTO mahasiswa (nim, namaMhs, email, password) VALUES (?, ?, ?, ?)"
 	_, err = config.DB.Exec(query, u.Nim, u.Nama, u.Email, u.Password)
 
 	if err != nil {
@@ -177,7 +185,7 @@ func UpdateUser(c *gin.Context) {
 	args := []interface{}{}
 
 	if u.Nama != "" {
-		updates = append(updates, "nama_mhs = ?")
+		updates = append(updates, "namaMhs = ?")
 		args = append(args, u.Nama)
 	}
 
