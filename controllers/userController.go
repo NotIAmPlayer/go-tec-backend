@@ -14,7 +14,7 @@ import (
 
 type Users struct {
 	Nim      string `json:"nim"`
-	Nama     string `json:"nama"`
+	Nama     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }

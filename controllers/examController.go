@@ -112,3 +112,7 @@ func GetExam(c *gin.Context) {
 
 	c.JSON(http.StatusOK, e)
 }
+
+func CreateExam(c *gin.Context) {
+
+}
