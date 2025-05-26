@@ -71,6 +71,8 @@ func GetUsers(c *gin.Context) {
 		return
 	}
 
+	defer rows.Close()
+
 	for rows.Next() {
 		var u Users
 

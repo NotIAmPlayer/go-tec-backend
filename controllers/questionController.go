@@ -61,6 +61,8 @@ func GetQuestions(c *gin.Context) {
 		return
 	}
 
+	defer rows.Close()
+
 	for rows.Next() {
 		var q Questions
 
