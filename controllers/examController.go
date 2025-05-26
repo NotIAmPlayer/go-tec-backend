@@ -217,7 +217,96 @@ func CreateExam(c *gin.Context) {
 		return
 	}
 
-	// TODO: add valid question IDs to soal_ujian and student NIMs to ujian_ikut.
+	// fetch the newly made exam ID
+	query2 := "SELECT idUjian FROM ujian WHERE dateCreated = ?"
+	row := config.DB.QueryRow(query2, createdTime)
+
+	if err := row.Scan(&e.ExamID); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "404 - Exam not found",
+			})
+			return
+		}
+		log.Printf("Get question error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal Server Error",
+		})
+		return
+	}
+
+	// add valid question IDs to soal_ujian and student NIMs to ujian_ikut if questions and students arrays aren't empty.
+	if len(e.Questions) > 0 {
+		for _, qid := range e.Questions {
+			// check if question with this id exists
+			var q Questions
+			query3 := "SELECT isiSoal FROM soal WHERE idSoal = ?"
+
+			row := config.DB.QueryRow(query3, qid)
+
+			if err := row.Scan(&q.QuestionText); err != nil {
+				if err == sql.ErrNoRows {
+					c.JSON(http.StatusNotFound, gin.H{
+						"message": "404 - Question not found",
+					})
+					return
+				}
+				log.Printf("Get question error: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "500 - Internal Server Error",
+				})
+				return
+			}
+
+			// if exists, place the question id for that exam
+			query4 := "INSERT INTO soal_ujian (idUjian, idSoal) VALUES (?, ?)"
+			_, err := config.DB.Exec(query4, e.ExamID, q)
+
+			if err != nil {
+				log.Printf("Create question error: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "500 - Internal server error",
+				})
+				return
+			}
+		}
+	}
+
+	if len(e.Students) > 0 {
+		for _, sid := range e.Students {
+			// check if student with this npm exists
+			var s Users
+			query3 := "SELECT namaMhs FROM mahasiswa WHERE nim = ?"
+
+			row := config.DB.QueryRow(query3, sid)
+
+			if err := row.Scan(&s.Nama); err != nil {
+				if err == sql.ErrNoRows {
+					c.JSON(http.StatusNotFound, gin.H{
+						"message": "404 - Question not found",
+					})
+					return
+				}
+				log.Printf("Get question error: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "500 - Internal Server Error",
+				})
+				return
+			}
+
+			// if exists, place the student npm for that exam
+			query4 := "INSERT INTO ujian_ikut (nim, idUjian) VALUES (?, ?)"
+			_, err := config.DB.Exec(query4, sid, e.ExamID)
+
+			if err != nil {
+				log.Printf("Create question error: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "500 - Internal server error",
+				})
+				return
+			}
+		}
+	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "201 - Exam created successfully",
