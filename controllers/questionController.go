@@ -134,9 +134,16 @@ func CreateQuestion(c *gin.Context) {
 		return
 	}
 
-	if q.QuestionType != "Listening" && q.QuestionType != "Reading" && q.QuestionType != "Grammar" {
+	if q.QuestionType != "listening" && q.QuestionType != "reading" && q.QuestionType != "grammar" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "400 - Invalid question type",
+		})
+		return
+	}
+
+	if q.Answer != "a" && q.Answer != "b" && q.Answer != "c" && q.Answer != "d" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid answer letter",
 		})
 		return
 	}

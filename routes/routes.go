@@ -29,4 +29,7 @@ func SetupRoutes(r *gin.Engine) {
 	api.POST("/questions", controllers.CreateQuestion)
 	api.PUT("/questions/:id", controllers.UpdateQuestion)
 	api.DELETE("/questions/:id", controllers.DeleteQuestion)
+
+	api.GET("/exams/page/:page", controllers.GetExams)
+	api.GET("/exams/:id", controllers.GetExam)
 }
