@@ -263,10 +263,11 @@ func CreateExam(c *gin.Context) {
 
 			// if exists, place the question id for that exam
 			query4 := "INSERT INTO soal_ujian (idUjian, idSoal) VALUES (?, ?)"
-			_, err := config.DB.Exec(query4, e.ExamID, q)
+			_, err := config.DB.Exec(query4, e.ExamID, qid)
 
 			if err != nil {
 				log.Printf("Create exam question error: %v", err)
+				// log.Println(e.ExamID, qid)
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"message": "500 - Internal server error",
 				})
@@ -355,7 +356,7 @@ func UpdateExam(c *gin.Context) {
 	if e.EndDatetime != "" {
 		if _, err := time.Parse(time.DateTime, e.EndDatetime); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "400 - Invalid starting date and time",
+				"message": "400 - Invalid ending date and time",
 			})
 			return
 		}
@@ -364,12 +365,8 @@ func UpdateExam(c *gin.Context) {
 		args = append(args, e.EndDatetime)
 	}
 
-	if len(updates) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - No fields to update",
-		})
-		return
-	}
+	updateQuestions := false
+	updateStudents := false
 
 	// TODO: add questions and students updates
 	if len(e.Questions) > 0 {
@@ -391,9 +388,9 @@ func UpdateExam(c *gin.Context) {
 		oldQuestionIDs := make(map[int]bool)
 
 		for rows.Next() {
-			var id int
+			var qid int
 
-			if err := rows.Scan(&id); err != nil {
+			if err := rows.Scan(&qid); err != nil {
 				log.Printf("Get exam questions error: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"message": "500 - Internal server error",
@@ -401,38 +398,39 @@ func UpdateExam(c *gin.Context) {
 				return
 			}
 
-			oldQuestionIDs[id] = true
+			oldQuestionIDs[qid] = true
 		}
 
 		// map for new question ids
 		newQuestionIDs := make(map[int]bool)
 
-		for _, id := range e.Questions {
-			newQuestionIDs[id] = true
+		for _, qid := range e.Questions {
+			newQuestionIDs[qid] = true
 		}
 
 		var toAdd []int
 		var toDelete []int
 
-		for _, id := range e.Questions {
-			if !oldQuestionIDs[id] {
-				toAdd = append(toAdd, id)
+		for _, qid := range e.Questions {
+			if !oldQuestionIDs[qid] {
+				toAdd = append(toAdd, qid)
 			}
 		}
 
-		for id := range oldQuestionIDs {
-			if !newQuestionIDs[id] {
-				toDelete = append(toDelete, id)
+		for qid := range oldQuestionIDs {
+			if !newQuestionIDs[qid] {
+				toDelete = append(toDelete, qid)
 			}
 		}
 
 		if len(toAdd) > 0 {
-			for _, id := range toAdd {
+			for _, qid := range toAdd {
 				q2 := "INSERT INTO soal_ujian (idUjian, idSoal) VALUES (?, ?)"
-				_, err := config.DB.Exec(q2, e.ExamID, id)
+				_, err := config.DB.Exec(q2, id, qid)
 
 				if err != nil {
 					log.Printf("Update exam question (create) error: %v", err)
+					log.Println(id, qid)
 					c.JSON(http.StatusInternalServerError, gin.H{
 						"message": "500 - Internal server error",
 					})
@@ -442,12 +440,13 @@ func UpdateExam(c *gin.Context) {
 		}
 
 		if len(toDelete) > 0 {
-			for _, id := range toDelete {
+			for _, qid := range toDelete {
 				q3 := "DELETE FROM soal_ujian WHERE idUjian = ? AND idSoal = ?"
-				_, err := config.DB.Exec(q3, e.ExamID, id)
+				_, err := config.DB.Exec(q3, id, qid)
 
 				if err != nil {
 					log.Printf("Update exam question (delete) error: %v", err)
+					log.Println(id, qid)
 					c.JSON(http.StatusInternalServerError, gin.H{
 						"message": "500 - Internal server error",
 					})
@@ -455,6 +454,8 @@ func UpdateExam(c *gin.Context) {
 				}
 			}
 		}
+
+		updateQuestions = true
 	}
 
 	if len(e.Students) > 0 {
@@ -513,10 +514,11 @@ func UpdateExam(c *gin.Context) {
 		if len(toAdd) > 0 {
 			for _, nim := range toAdd {
 				q2 := "INSERT INTO ujian_ikut (nim, idUjian) VALUES (?, ?)"
-				_, err := config.DB.Exec(q2, nim, e.ExamID)
+				_, err := config.DB.Exec(q2, nim, id)
 
 				if err != nil {
 					log.Printf("Update exam student (create) error: %v", err)
+					log.Println(id, nim)
 					c.JSON(http.StatusInternalServerError, gin.H{
 						"message": "500 - Internal server error",
 					})
@@ -532,6 +534,7 @@ func UpdateExam(c *gin.Context) {
 
 				if err != nil {
 					log.Printf("Update exam student (delete) error: %v", err)
+					log.Println(e.ExamID, nim)
 					c.JSON(http.StatusInternalServerError, gin.H{
 						"message": "500 - Internal server error",
 					})
@@ -539,6 +542,15 @@ func UpdateExam(c *gin.Context) {
 				}
 			}
 		}
+
+		updateStudents = true
+	}
+
+	if len(updates) == 0 && !updateQuestions && !updateStudents {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - No fields to update",
+		})
+		return
 	}
 
 	updatedTime := time.Now().Format(time.DateTime)

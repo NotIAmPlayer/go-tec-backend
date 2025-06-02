@@ -32,4 +32,7 @@ func SetupRoutes(r *gin.Engine) {
 
 	api.GET("/exams/page/:page", controllers.GetExams)
 	api.GET("/exams/:id", controllers.GetExam)
+	api.POST("/exams", controllers.CreateExam)
+	api.PUT("/exams/:id", controllers.UpdateExam)
+	api.DELETE("/exams/:id", controllers.DeleteExam)
 }
