@@ -35,4 +35,6 @@ func SetupRoutes(r *gin.Engine) {
 	api.POST("/exams", controllers.CreateExam)
 	api.PUT("/exams/:id", controllers.UpdateExam)
 	api.DELETE("/exams/:id", controllers.DeleteExam)
+
+	r.GET("/audio/:filename", controllers.GetAudioFile)
 }

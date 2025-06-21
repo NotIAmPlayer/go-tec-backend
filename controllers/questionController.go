@@ -12,14 +12,14 @@ import (
 )
 
 type Questions struct {
-	QuestionID   int    `json:"question_id"`
-	QuestionType string `json:"question_type"`
-	QuestionText string `json:"question_text"`
-	ChoiceA      string `json:"choice_a"`
-	ChoiceB      string `json:"choice_b"`
-	ChoiceC      string `json:"choice_c"`
-	ChoiceD      string `json:"choice_d"`
-	Answer       string `json:"answer"`
+	QuestionID   int    `json:"question_id" form:"question_id"`
+	QuestionType string `json:"question_type" form:"question_type"`
+	QuestionText string `json:"question_text" form:"question_text"`
+	ChoiceA      string `json:"choice_a" form:"choice_a"`
+	ChoiceB      string `json:"choice_b" form:"choice_b"`
+	ChoiceC      string `json:"choice_c" form:"choice_c"`
+	ChoiceD      string `json:"choice_d" form:"choice_d"`
+	Answer       string `json:"answer" form:"answer"`
 }
 
 func GetQuestions(c *gin.Context) {
@@ -127,11 +127,35 @@ func CreateQuestion(c *gin.Context) {
 	/*
 		Create a new question in the database from JSON data.
 	*/
+
+	file, err := c.FormFile("file")
+
+	if err != nil {
+		log.Printf("File upload error: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid file upload",
+		})
+		return
+	}
+
+	// Save file to the uploads directory
+	dest := "uploads/" + file.Filename
+
+	if err := c.SaveUploadedFile(file, dest); err != nil {
+		log.Printf("File save error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	log.Printf("File uploaded successfully: %s", dest)
+
 	var q Questions
 
-	if err := c.ShouldBindJSON(&q); err != nil {
+	if err := c.ShouldBind(&q); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid JSON data",
+			"message": "400 - Invalid form data",
 		})
 		return
 	}
@@ -143,6 +167,13 @@ func CreateQuestion(c *gin.Context) {
 		return
 	}
 
+	if q.QuestionText == "" || q.ChoiceA == "" || q.ChoiceB == "" || q.ChoiceC == "" || q.ChoiceD == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Question text and answer texts are required",
+		})
+		return
+	}
+
 	if q.Answer != "a" && q.Answer != "b" && q.Answer != "c" && q.Answer != "d" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "400 - Invalid answer letter",
@@ -150,8 +181,8 @@ func CreateQuestion(c *gin.Context) {
 		return
 	}
 
-	query := "INSERT INTO soal (tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban) VALUES (?, ?, ?, ?, ?, ?, ?)"
-	_, err := config.DB.Exec(query, q.QuestionType, q.QuestionText, q.ChoiceA, q.ChoiceB, q.ChoiceC, q.ChoiceD, q.Answer)
+	query := "INSERT INTO soal (tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban, audio) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+	_, err = config.DB.Exec(query, q.QuestionType, q.QuestionText, q.ChoiceA, q.ChoiceB, q.ChoiceC, q.ChoiceD, q.Answer, dest)
 
 	if err != nil {
 		log.Printf("Create question error: %v", err)
@@ -172,17 +203,45 @@ func UpdateQuestion(c *gin.Context) {
 	*/
 	id := c.Param("id")
 
+	file, err := c.FormFile("file")
+
+	if err != nil {
+		log.Printf("File upload error: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid file upload",
+		})
+		return
+	}
+
+	// Save file to the uploads directory
+	dest := "uploads/" + file.Filename
+
+	if err := c.SaveUploadedFile(file, dest); err != nil {
+		log.Printf("File save error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	log.Printf("File uploaded successfully: %s", dest)
+
 	var q Questions
 
-	if err := c.ShouldBindJSON(&q); err != nil {
+	if err := c.ShouldBind(&q); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid JSON data",
+			"message": "400 - Invalid form data",
 		})
 		return
 	}
 
 	updates := []string{}
 	args := []interface{}{}
+
+	if file != nil {
+		updates = append(updates, "audio = ?")
+		args = append(args, dest)
+	}
 
 	if q.QuestionType != "" && (q.QuestionType == "Listening" || q.QuestionType == "Reading" || q.QuestionType == "Grammar") {
 		updates = append(updates, "tipeSoal = ?")
@@ -229,7 +288,7 @@ func UpdateQuestion(c *gin.Context) {
 	args = append(args, id)
 	query := "UPDATE soal SET " + strings.Join(updates, ", ") + " WHERE idSoal = ?"
 
-	_, err := config.DB.Exec(query, args...)
+	_, err = config.DB.Exec(query, args...)
 
 	if err != nil {
 		log.Printf("Update question error: %v", err)
