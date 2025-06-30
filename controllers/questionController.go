@@ -20,6 +20,31 @@ type Questions struct {
 	ChoiceC      string `json:"choice_c" form:"choice_c"`
 	ChoiceD      string `json:"choice_d" form:"choice_d"`
 	Answer       string `json:"answer" form:"answer"`
+	AudioPath    string `json:"audio_path" form:"audio_path"`
+}
+
+func GetQuestionCount(c *gin.Context) {
+	/*
+		Get the total number of questions in the database.
+		Used by the frontend for pagination.
+	*/
+	var count int
+
+	query := "SELECT COUNT(*) FROM soal"
+
+	row := config.DB.QueryRow(query)
+
+	if err := row.Scan(&count); err != nil {
+		log.Printf("Get question count error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"count": count,
+	})
 }
 
 func GetQuestions(c *gin.Context) {
@@ -49,7 +74,7 @@ func GetQuestions(c *gin.Context) {
 
 	questions := []Questions{}
 
-	query := "SELECT idSoal, tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban FROM soal LIMIT ? OFFSET ?"
+	query := "SELECT idSoal, tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban, audio FROM soal LIMIT ? OFFSET ?"
 
 	rows, err := config.DB.Query(query, limit, offset)
 
@@ -66,12 +91,18 @@ func GetQuestions(c *gin.Context) {
 	for rows.Next() {
 		var q Questions
 
-		if err := rows.Scan(&q.QuestionID, &q.QuestionType, &q.QuestionText, &q.ChoiceA, &q.ChoiceB, &q.ChoiceC, &q.ChoiceD, &q.Answer); err != nil {
+		var audio sql.NullString
+		if err := rows.Scan(&q.QuestionID, &q.QuestionType, &q.QuestionText, &q.ChoiceA, &q.ChoiceB, &q.ChoiceC, &q.ChoiceD, &q.Answer, &audio); err != nil {
 			log.Printf("Get multiple questions error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "500 - Internal Server Error",
 			})
 			return
+		}
+		if audio.Valid {
+			q.AudioPath = audio.String
+		} else {
+			q.AudioPath = ""
 		}
 
 		questions = append(questions, q)
@@ -106,7 +137,8 @@ func GetQuestion(c *gin.Context) {
 
 	row := config.DB.QueryRow(query, id)
 
-	if err := row.Scan(&q.QuestionID, &q.QuestionType, &q.QuestionText, &q.ChoiceA, &q.ChoiceB, &q.ChoiceC, &q.ChoiceD, &q.Answer); err != nil {
+	var audio sql.NullString
+	if err := row.Scan(&q.QuestionID, &q.QuestionType, &q.QuestionText, &q.ChoiceA, &q.ChoiceB, &q.ChoiceC, &q.ChoiceD, &q.Answer, &audio); err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{
 				"message": "404 - Question not found",
@@ -118,6 +150,11 @@ func GetQuestion(c *gin.Context) {
 			"message": "500 - Internal Server Error",
 		})
 		return
+	}
+	if audio.Valid {
+		q.AudioPath = audio.String
+	} else {
+		q.AudioPath = ""
 	}
 
 	c.JSON(http.StatusOK, q)
@@ -182,7 +219,7 @@ func CreateQuestion(c *gin.Context) {
 	}
 
 	query := "INSERT INTO soal (tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban, audio) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-	_, err = config.DB.Exec(query, q.QuestionType, q.QuestionText, q.ChoiceA, q.ChoiceB, q.ChoiceC, q.ChoiceD, q.Answer, dest)
+	_, err = config.DB.Exec(query, q.QuestionType, q.QuestionText, q.ChoiceA, q.ChoiceB, q.ChoiceC, q.ChoiceD, q.Answer, file.Filename)
 
 	if err != nil {
 		log.Printf("Create question error: %v", err)
@@ -240,7 +277,7 @@ func UpdateQuestion(c *gin.Context) {
 
 	if file != nil {
 		updates = append(updates, "audio = ?")
-		args = append(args, dest)
+		args = append(args, file.Filename)
 	}
 
 	if q.QuestionType != "" && (q.QuestionType == "Listening" || q.QuestionType == "Reading" || q.QuestionType == "Grammar") {

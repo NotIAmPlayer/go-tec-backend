@@ -33,6 +33,30 @@ func comparePasswordHash(password string, hash string) bool {
 }
 */
 
+func GetUserCount(c *gin.Context) {
+	/*
+		Get the total number of users in the database.
+		Used by the frontend for pagination.
+	*/
+	var count int
+
+	query := "SELECT COUNT(*) FROM mahasiswa"
+
+	row := config.DB.QueryRow(query)
+
+	if err := row.Scan(&count); err != nil {
+		log.Printf("Get user count error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"count": count,
+	})
+}
+
 func GetUsers(c *gin.Context) {
 	/*
 		Get users on a specific page from the database as JSON.

@@ -23,6 +23,30 @@ type Exams struct {
 	StudentCount  int      `json:"student_count"`
 }
 
+func GetExamCount(c *gin.Context) {
+	/*
+		Get the total number of exams in the database.
+		Used by the frontend for pagination.
+	*/
+	var count int
+
+	query := "SELECT COUNT(*) FROM ujian"
+
+	row := config.DB.QueryRow(query)
+
+	if err := row.Scan(&count); err != nil {
+		log.Printf("Get exam count error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"count": count,
+	})
+}
+
 func GetExams(c *gin.Context) {
 	/*
 		Get exams on a specific page from the database as JSON.
