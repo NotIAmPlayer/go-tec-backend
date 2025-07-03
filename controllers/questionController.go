@@ -165,29 +165,6 @@ func CreateQuestion(c *gin.Context) {
 		Create a new question in the database from JSON data.
 	*/
 
-	file, err := c.FormFile("file")
-
-	if err != nil {
-		log.Printf("File upload error: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid file upload",
-		})
-		return
-	}
-
-	// Save file to the uploads directory
-	dest := "uploads/" + file.Filename
-
-	if err := c.SaveUploadedFile(file, dest); err != nil {
-		log.Printf("File save error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "500 - Internal server error",
-		})
-		return
-	}
-
-	log.Printf("File uploaded successfully: %s", dest)
-
 	var q Questions
 
 	if err := c.ShouldBind(&q); err != nil {
@@ -218,8 +195,52 @@ func CreateQuestion(c *gin.Context) {
 		return
 	}
 
+	var filename string
+
+	if q.QuestionType == "listening" {
+		file, err := c.FormFile("file")
+
+		if err != nil && err != http.ErrMissingFile {
+			log.Printf("File upload error: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "400 - Invalid file upload",
+			})
+			return
+		}
+
+		if file == nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "400 - File is required",
+			})
+			return
+		}
+
+		// Save file to the uploads directory
+		dest := "uploads/" + file.Filename
+
+		// Limit file size to 10MB
+		if file.Size > 10*1024*1024 {
+			log.Printf("File size error: %s exceeds 10MB limit", file.Filename)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "400 - File size exceeds 10MB limit",
+			})
+			return
+		}
+
+		if err := c.SaveUploadedFile(file, dest); err != nil {
+			log.Printf("File save error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal server error",
+			})
+			return
+		}
+
+		log.Printf("File uploaded successfully: %s", dest)
+		filename = file.Filename
+	}
+
 	query := "INSERT INTO soal (tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban, audio) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-	_, err = config.DB.Exec(query, q.QuestionType, q.QuestionText, q.ChoiceA, q.ChoiceB, q.ChoiceC, q.ChoiceD, q.Answer, file.Filename)
+	_, err := config.DB.Exec(query, q.QuestionType, q.QuestionText, q.ChoiceA, q.ChoiceB, q.ChoiceC, q.ChoiceD, q.Answer, filename)
 
 	if err != nil {
 		log.Printf("Create question error: %v", err)
@@ -242,7 +263,7 @@ func UpdateQuestion(c *gin.Context) {
 
 	file, err := c.FormFile("file")
 
-	if err != nil {
+	if err != nil && err != http.ErrMissingFile {
 		log.Printf("File upload error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "400 - Invalid file upload",
@@ -250,18 +271,31 @@ func UpdateQuestion(c *gin.Context) {
 		return
 	}
 
-	// Save file to the uploads directory
-	dest := "uploads/" + file.Filename
+	var filename string
 
-	if err := c.SaveUploadedFile(file, dest); err != nil {
-		log.Printf("File save error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "500 - Internal server error",
-		})
-		return
+	if file != nil {
+		// Save file to the uploads directory
+		dest := "uploads/" + file.Filename
+
+		if file.Size > 10*1024*1024 {
+			log.Printf("File size error: %s exceeds 10MB limit", file.Filename)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "400 - File size exceeds 10MB limit",
+			})
+			return
+		}
+
+		if err := c.SaveUploadedFile(file, dest); err != nil {
+			log.Printf("File save error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal server error",
+			})
+			return
+		}
+
+		log.Printf("File uploaded successfully: %s", dest)
+		filename = file.Filename
 	}
-
-	log.Printf("File uploaded successfully: %s", dest)
 
 	var q Questions
 
@@ -277,7 +311,7 @@ func UpdateQuestion(c *gin.Context) {
 
 	if file != nil {
 		updates = append(updates, "audio = ?")
-		args = append(args, file.Filename)
+		args = append(args, filename)
 	}
 
 	if q.QuestionType != "" && (q.QuestionType == "Listening" || q.QuestionType == "Reading" || q.QuestionType == "Grammar") {
