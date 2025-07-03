@@ -5,6 +5,7 @@ import (
 	"go-tec-backend/config"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -47,6 +48,66 @@ func GetQuestionCount(c *gin.Context) {
 	})
 }
 
+func GetAllQuestions(c *gin.Context) {
+	/*
+		Get questions on a specific page from the database as JSON.
+	*/
+
+	page, err := strconv.Atoi(c.Param("page"))
+
+	if err != nil || page < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid page number",
+		})
+		return
+	}
+
+	questions := []Questions{}
+
+	query := "SELECT idSoal, tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban, audio FROM soal ORDER BY idSoal ASC"
+
+	rows, err := config.DB.Query(query)
+
+	if err != nil {
+		log.Printf("Get multiple questions error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal Server Error",
+		})
+		return
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var q Questions
+
+		var audio sql.NullString
+		if err := rows.Scan(&q.QuestionID, &q.QuestionType, &q.QuestionText, &q.ChoiceA, &q.ChoiceB, &q.ChoiceC, &q.ChoiceD, &q.Answer, &audio); err != nil {
+			log.Printf("Get multiple questions error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal Server Error",
+			})
+			return
+		}
+		if audio.Valid {
+			q.AudioPath = audio.String
+		} else {
+			q.AudioPath = ""
+		}
+
+		questions = append(questions, q)
+	}
+
+	if len(questions) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "404 - No questions found on page " + strconv.Itoa(page),
+		})
+		return
+	} else {
+		c.JSON(http.StatusOK, questions)
+	}
+}
+
 func GetQuestions(c *gin.Context) {
 	/*
 		Get questions on a specific page from the database as JSON.
@@ -74,7 +135,7 @@ func GetQuestions(c *gin.Context) {
 
 	questions := []Questions{}
 
-	query := "SELECT idSoal, tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban, audio FROM soal LIMIT ? OFFSET ?"
+	query := "SELECT idSoal, tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban, audio FROM soal ORDER BY idSoal ASC LIMIT ? OFFSET ?"
 
 	rows, err := config.DB.Query(query, limit, offset)
 
@@ -215,6 +276,18 @@ func CreateQuestion(c *gin.Context) {
 			return
 		}
 
+		// If uploads directory does not exist, create it
+		if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+			if err := os.Mkdir("uploads", 0755); err != nil {
+				log.Printf("Directory creation error: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "500 - Internal server error",
+				})
+				return
+			}
+			log.Println("Uploads directory created")
+		}
+
 		// Save file to the uploads directory
 		dest := "uploads/" + file.Filename
 
@@ -274,6 +347,18 @@ func UpdateQuestion(c *gin.Context) {
 	var filename string
 
 	if file != nil {
+		// If uploads directory does not exist, create it
+		if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+			if err := os.Mkdir("uploads", 0755); err != nil {
+				log.Printf("Directory creation error: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "500 - Internal server error",
+				})
+				return
+			}
+			log.Println("Uploads directory created")
+		}
+
 		// Save file to the uploads directory
 		dest := "uploads/" + file.Filename
 

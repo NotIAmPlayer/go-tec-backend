@@ -83,7 +83,7 @@ func GetUsers(c *gin.Context) {
 
 	users := []Users{}
 
-	query := "SELECT nim, namaMhs, email FROM mahasiswa LIMIT ? OFFSET ?"
+	query := "SELECT nim, namaMhs, email FROM mahasiswa ORDER BY idSoal ASC LIMIT ? OFFSET ?"
 
 	rows, err := config.DB.Query(query, limit, offset)
 

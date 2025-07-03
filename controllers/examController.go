@@ -74,7 +74,7 @@ func GetExams(c *gin.Context) {
 
 	exams := []Exams{}
 
-	query := "SELECT idUjian, namaUjian, jadwalMulai, jadwalSelesai FROM ujian LIMIT ? OFFSET ?"
+	query := "SELECT idUjian, namaUjian, jadwalMulai, jadwalSelesai FROM ujian ORDER BY idSoal ASC LIMIT ? OFFSET ?"
 	rows, err := config.DB.Query(query, limit, offset)
 
 	if err != nil {
