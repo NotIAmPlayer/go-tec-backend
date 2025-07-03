@@ -50,7 +50,7 @@ func GetQuestionCount(c *gin.Context) {
 
 func GetAllQuestions(c *gin.Context) {
 	/*
-		Get questions on a specific page from the database as JSON.
+		Get all questions from the database as JSON.
 	*/
 
 	page, err := strconv.Atoi(c.Param("page"))

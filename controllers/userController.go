@@ -57,6 +57,59 @@ func GetUserCount(c *gin.Context) {
 	})
 }
 
+func GetAllUsers(c *gin.Context) {
+	/*
+		Get all users from the database as JSON.
+	*/
+	page, err := strconv.Atoi(c.Param("page"))
+
+	if err != nil || page < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid page number",
+		})
+		return
+	}
+
+	users := []Users{}
+
+	query := "SELECT nim, namaMhs, email FROM mahasiswa ORDER BY idSoal ASC"
+
+	rows, err := config.DB.Query(query)
+
+	if err != nil {
+		log.Printf("Get multiple users error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var u Users
+
+		if err := rows.Scan(&u.Nim, &u.Nama, &u.Email); err != nil {
+			log.Printf("Get multiple users error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal server error",
+			})
+			return
+		}
+
+		users = append(users, u)
+	}
+
+	if len(users) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "404 - No users found on page " + strconv.Itoa(page),
+		})
+		return
+	} else {
+		c.JSON(http.StatusOK, users)
+	}
+}
+
 func GetUsers(c *gin.Context) {
 	/*
 		Get users on a specific page from the database as JSON.
