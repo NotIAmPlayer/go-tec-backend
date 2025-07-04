@@ -62,7 +62,7 @@ func GetAllUsers(c *gin.Context) {
 	*/
 	users := []Users{}
 
-	query := "SELECT nim, namaMhs, email FROM mahasiswa ORDER BY idSoal ASC"
+	query := "SELECT nim, namaMhs, email FROM mahasiswa ORDER BY nim ASC"
 
 	rows, err := config.DB.Query(query)
 

@@ -53,7 +53,7 @@ func GetAllExams(c *gin.Context) {
 	*/
 	exams := []Exams{}
 
-	query := "SELECT idUjian, namaUjian, jadwalMulai, jadwalSelesai FROM ujian ORDER BY idSoal ASC"
+	query := "SELECT idUjian, namaUjian, jadwalMulai, jadwalSelesai FROM ujian ORDER BY idUjian ASC"
 	rows, err := config.DB.Query(query)
 
 	if err != nil {
