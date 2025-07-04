@@ -5,7 +5,6 @@ import (
 	"go-tec-backend/config"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -61,15 +60,6 @@ func GetAllUsers(c *gin.Context) {
 	/*
 		Get all users from the database as JSON.
 	*/
-	page, err := strconv.Atoi(c.Param("page"))
-
-	if err != nil || page < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid page number",
-		})
-		return
-	}
-
 	users := []Users{}
 
 	query := "SELECT nim, namaMhs, email FROM mahasiswa ORDER BY idSoal ASC"
@@ -101,8 +91,8 @@ func GetAllUsers(c *gin.Context) {
 	}
 
 	if len(users) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "404 - No users found on page " + strconv.Itoa(page),
+		c.JSON(http.StatusOK, gin.H{
+			"message": "200 - No users found",
 		})
 		return
 	} else {
@@ -110,10 +100,9 @@ func GetAllUsers(c *gin.Context) {
 	}
 }
 
+/*
 func GetUsers(c *gin.Context) {
-	/*
-		Get users on a specific page from the database as JSON.
-	*/
+	// Get users on a specific page from the database as JSON.
 	page, err := strconv.Atoi(c.Param("page"))
 
 	if err != nil || page < 1 {
@@ -173,6 +162,7 @@ func GetUsers(c *gin.Context) {
 		c.JSON(http.StatusOK, users)
 	}
 }
+*/
 
 func GetUser(c *gin.Context) {
 	/*

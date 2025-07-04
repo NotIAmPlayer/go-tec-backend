@@ -52,16 +52,6 @@ func GetAllQuestions(c *gin.Context) {
 	/*
 		Get all questions from the database as JSON.
 	*/
-
-	page, err := strconv.Atoi(c.Param("page"))
-
-	if err != nil || page < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid page number",
-		})
-		return
-	}
-
 	questions := []Questions{}
 
 	query := "SELECT idSoal, tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban, audio FROM soal ORDER BY idSoal ASC"
@@ -99,8 +89,8 @@ func GetAllQuestions(c *gin.Context) {
 	}
 
 	if len(questions) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "404 - No questions found on page " + strconv.Itoa(page),
+		c.JSON(http.StatusOK, gin.H{
+			"message": "200 - No questions found",
 		})
 		return
 	} else {
@@ -108,10 +98,9 @@ func GetAllQuestions(c *gin.Context) {
 	}
 }
 
+/* Unused
 func GetQuestions(c *gin.Context) {
-	/*
-		Get questions on a specific page from the database as JSON.
-	*/
+	// Get questions on a specific page from the database as JSON.
 
 	page, err := strconv.Atoi(c.Param("page"))
 
@@ -178,6 +167,7 @@ func GetQuestions(c *gin.Context) {
 		c.JSON(http.StatusOK, questions)
 	}
 }
+*/
 
 func GetQuestion(c *gin.Context) {
 	/*

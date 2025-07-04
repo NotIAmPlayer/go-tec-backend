@@ -51,16 +51,6 @@ func GetAllExams(c *gin.Context) {
 	/*
 		Get all exams from the database as JSON.
 	*/
-
-	page, err := strconv.Atoi(c.Param("page"))
-
-	if err != nil || page < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid page number",
-		})
-		return
-	}
-
 	exams := []Exams{}
 
 	query := "SELECT idUjian, namaUjian, jadwalMulai, jadwalSelesai FROM ujian ORDER BY idSoal ASC"
@@ -127,8 +117,8 @@ func GetAllExams(c *gin.Context) {
 	}
 
 	if len(exams) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "404 - No exams found",
+		c.JSON(http.StatusOK, gin.H{
+			"message": "200 - No exams found",
 		})
 		return
 	} else {
@@ -136,10 +126,9 @@ func GetAllExams(c *gin.Context) {
 	}
 }
 
+/* Unused
 func GetExams(c *gin.Context) {
-	/*
-		Get exams on a specific page from the database as JSON.
-	*/
+	//	Get exams on a specific page from the database as JSON.
 
 	page, err := strconv.Atoi(c.Param("page"))
 
@@ -235,6 +224,7 @@ func GetExams(c *gin.Context) {
 		c.JSON(http.StatusOK, exams)
 	}
 }
+*/
 
 func GetExam(c *gin.Context) {
 	/*
