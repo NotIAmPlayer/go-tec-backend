@@ -184,7 +184,7 @@ func GetQuestion(c *gin.Context) {
 
 	var q Questions
 
-	query := "SELECT idSoal, tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban FROM soal WHERE idSoal = ?"
+	query := "SELECT idSoal, tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban, audio FROM soal WHERE idSoal = ?"
 
 	row := config.DB.QueryRow(query, id)
 

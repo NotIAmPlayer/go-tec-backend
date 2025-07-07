@@ -11,7 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func GenerateJWT(id string, email string) (string, error) {
+func GenerateJWT(id, email, role string) (string, error) {
 	tokenLifespan, err := strconv.Atoi(os.Getenv("TOKEN_HOUR_LIFESPAN"))
 
 	if err != nil {
@@ -22,6 +22,7 @@ func GenerateJWT(id string, email string) (string, error) {
 	claims["authorized"] = true
 	claims["id"] = id
 	claims["email"] = email
+	claims["role"] = role
 	claims["exp"] = time.Now().Add(time.Duration(tokenLifespan) * time.Hour).Unix()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

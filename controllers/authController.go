@@ -19,6 +19,7 @@ type UserData struct {
 	ID       string `json:"id"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	Role     string `json:"role"`
 }
 
 func comparePasswordHash(password string, hash string) bool {
@@ -34,42 +35,53 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	token, err := verifyLogin(request.Username, request.Password)
+	token, user, err := verifyLogin(request.Username, request.Password)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "400 - Invalid username or password"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"token": token})
+	c.JSON(http.StatusOK, gin.H{
+		"token": token,
+		"user": gin.H{
+			"id":    user.ID,
+			"email": user.Email,
+			"role":  user.Role,
+		},
+	})
 }
 
-func verifyLogin(username, password string) (string, error) {
-	query := "SELECT nim AS id, email, password FROM mahasiswa WHERE nim = ? OR email = ? UNION SELECT idAdmin AS id, email, password FROM admin WHERE idAdmin = ? OR email = ?"
+func verifyLogin(username, password string) (string, UserData, error) {
+	query := `
+		SELECT nim AS id, email, password, 'mahasiswa' AS role FROM mahasiswa WHERE nim = ? OR email = ?
+		UNION
+		SELECT idAdmin AS id, email, password, 'admin' AS role FROM admin WHERE idAdmin = ? OR email = ?
+	`
 
 	rows := config.DB.QueryRow(query, username, username, username, username)
 
 	var user UserData
 
-	if err := rows.Scan(&user.ID, &user.Email, &user.Password); err != nil {
+	if err := rows.Scan(&user.ID, &user.Email, &user.Password, &user.Role); err != nil {
 		if err == sql.ErrNoRows {
 			log.Println("User not found or password incorrect")
 		} else {
 			log.Printf("Error scanning user data: %v", err)
 		}
-		return "", err
+		return "", user, err
 	}
 
 	if !comparePasswordHash(password, user.Password) {
 		log.Println("Password does not match")
-		return "", bcrypt.ErrMismatchedHashAndPassword
+		return "", user, bcrypt.ErrMismatchedHashAndPassword
 	}
 
-	token, err := config.GenerateJWT(user.ID, user.Email)
+	token, err := config.GenerateJWT(user.ID, user.Email, user.Role)
 
 	if err != nil {
-		return "", err
+		return "", user, err
 	}
 
-	return token, nil
+	return token, user, nil
 }
