@@ -17,6 +17,7 @@ type LoginRequest struct {
 
 type UserData struct {
 	ID       string `json:"id"`
+	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	Role     string `json:"role"`
@@ -46,24 +47,25 @@ func Login(c *gin.Context) {
 		"token": token,
 		"user": gin.H{
 			"id":    user.ID,
+			"name":  user.Name, // For frontend display
 			"email": user.Email,
-			"role":  user.Role,
+			"role":  user.Role, // 'mahasiswa' or 'admin'
 		},
 	})
 }
 
 func verifyLogin(username, password string) (string, UserData, error) {
 	query := `
-		SELECT nim AS id, email, password, 'mahasiswa' AS role FROM mahasiswa WHERE nim = ? OR email = ?
+		SELECT nim AS id, namaMhs AS nama, email, password, 'mahasiswa' AS role FROM mahasiswa WHERE nim = ? OR email = ?
 		UNION
-		SELECT idAdmin AS id, email, password, 'admin' AS role FROM admin WHERE idAdmin = ? OR email = ?
+		SELECT idAdmin AS id, namaAdmin AS nama, email, password, 'admin' AS role FROM admin WHERE idAdmin = ? OR email = ?
 	`
 
 	rows := config.DB.QueryRow(query, username, username, username, username)
 
 	var user UserData
 
-	if err := rows.Scan(&user.ID, &user.Email, &user.Password, &user.Role); err != nil {
+	if err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Role); err != nil {
 		if err == sql.ErrNoRows {
 			log.Println("User not found or password incorrect")
 		} else {
