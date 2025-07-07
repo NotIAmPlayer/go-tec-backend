@@ -4,16 +4,24 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"go-tec-backend/controllers"
+	"go-tec-backend/middlewares"
 )
 
 func SetupRoutes(r *gin.Engine) {
+	r.POST("/login", controllers.Login)
+
+	r.GET("/audio/:filename", controllers.GetAudioFile)
+
 	api := r.Group("/api")
+	api.Use(middlewares.JWTAuthMiddleware()) // Apply JWT middleware to all routes in this group
 
 	api.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "pong",
 		})
 	})
+
+	api.POST("/admin/:id/password", controllers.UpdateAdminPassword)
 
 	api.GET("/users", controllers.GetAllUsers)
 	api.GET("/users/count", controllers.GetUserCount)
@@ -39,6 +47,4 @@ func SetupRoutes(r *gin.Engine) {
 	api.POST("/exams", controllers.CreateExam)
 	api.PUT("/exams/:id", controllers.UpdateExam)
 	api.DELETE("/exams/:id", controllers.DeleteExam)
-
-	r.GET("/audio/:filename", controllers.GetAudioFile)
 }

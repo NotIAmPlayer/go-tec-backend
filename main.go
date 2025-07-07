@@ -11,13 +11,22 @@ import (
 )
 
 func main() {
-	gin.SetMode(gin.ReleaseMode)
-
 	// load environnment variables
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 		return
+	}
+
+	useDebugMode, exists := os.LookupEnv("DEBUG_MODE")
+
+	if !exists {
+		log.Fatal("DEBUG_MODE environment variable is not set")
+		return
+	}
+
+	if useDebugMode == "false" {
+		gin.SetMode(gin.ReleaseMode)
 	}
 
 	frontend, exists := os.LookupEnv("FRONTEND_URL")

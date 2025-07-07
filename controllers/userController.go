@@ -24,14 +24,6 @@ func hashPassword(password string) (string, error) {
 	return string(bytes), err
 }
 
-/*
-func comparePasswordHash(password string, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-
-	return err == nil
-}
-*/
-
 func GetUserCount(c *gin.Context) {
 	/*
 		Get the total number of users in the database.
@@ -324,6 +316,56 @@ func UpdateUserPassword(c *gin.Context) {
 
 	query := "UPDATE mahasiswa SET password = ? WHERE nim = ?"
 	_, err = config.DB.Exec(query, u.Password, nim)
+
+	if err != nil {
+		log.Printf("Update user password error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "200 - User password updated successfully",
+	})
+}
+
+func UpdateAdminPassword(c *gin.Context) {
+	/*
+		Update a user's password by NIM in the database from JSON data.
+	*/
+	id := c.Param("id")
+
+	var u Users
+
+	if err := c.ShouldBindJSON(&u); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid JSON data",
+		})
+		return
+	}
+
+	if u.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - No password to update",
+		})
+		return
+	}
+
+	hash, err := hashPassword(u.Password)
+
+	if err != nil {
+		log.Printf("Hashing password error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	u.Password = hash
+
+	query := "UPDATE admin SET password = ? WHERE idAdmin = ?"
+	_, err = config.DB.Exec(query, u.Password, id)
 
 	if err != nil {
 		log.Printf("Update user password error: %v", err)
