@@ -3,7 +3,6 @@ package middlewares
 import "github.com/gin-gonic/gin"
 
 func HandleCORS(frontend string) gin.HandlerFunc {
-
 	return func(c *gin.Context) {
 		if gin.Mode() == gin.ReleaseMode {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", frontend)
