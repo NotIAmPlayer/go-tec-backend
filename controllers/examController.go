@@ -763,10 +763,10 @@ func DeleteExam(c *gin.Context) {
 
 	// remove questions and students if the count is above 0
 	query2 := "DELETE FROM soal_ujian WHERE idUjian = ?"
-	_, err := config.DB.Exec(query2, id)
+	_, err2 := config.DB.Exec(query2, id)
 
-	if err != nil {
-		log.Printf("Delete exam error: %v", err)
+	if err2 != nil {
+		log.Printf("Delete exam error: %v", err2)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "500 - Internal server error",
 		})
@@ -774,10 +774,10 @@ func DeleteExam(c *gin.Context) {
 	}
 
 	query3 := "DELETE FROM ujian_ikut WHERE idUjian = ?"
-	_, err := config.DB.Exec(query3, id)
+	_, err3 := config.DB.Exec(query3, id)
 
-	if err != nil {
-		log.Printf("Delete exam error: %v", err)
+	if err3 != nil {
+		log.Printf("Delete exam error: %v", err3)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "500 - Internal server error",
 		})
@@ -786,10 +786,10 @@ func DeleteExam(c *gin.Context) {
 
 	// remove exam once there's no longer foreign key constraint fails
 	query4 := "DELETE FROM ujian WHERE idUjian = ?"
-	_, err := config.DB.Exec(query4, id)
+	_, err4 := config.DB.Exec(query4, id)
 
-	if err != nil {
-		log.Printf("Delete exam error: %v", err)
+	if err4 != nil {
+		log.Printf("Delete exam error: %v", err4)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "500 - Internal server error",
 		})
