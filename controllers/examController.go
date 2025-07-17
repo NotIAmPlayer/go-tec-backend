@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"database/sql"
+	"fmt"
 	"go-tec-backend/config"
 	"log"
 	"net/http"
@@ -82,16 +83,10 @@ func GetAllExams(c *gin.Context) {
 		row2 := config.DB.QueryRow(query2, e.ExamID)
 
 		if err := row2.Scan(&e.QuestionCount); err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, gin.H{
-					"message": "404 - Exam questions not found",
-				})
-			} else {
-				log.Printf("Get exam question error: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"message": "500 - Internal Server Error",
-				})
-			}
+			log.Printf("Get exam question error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal Server Error",
+			})
 			return
 		}
 
@@ -100,16 +95,10 @@ func GetAllExams(c *gin.Context) {
 		row3 := config.DB.QueryRow(query3, e.ExamID)
 
 		if err := row3.Scan(&e.StudentCount); err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, gin.H{
-					"message": "404 - Exam questions not found",
-				})
-			} else {
-				log.Printf("Get exam question error: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"message": "500 - Internal Server Error",
-				})
-			}
+			log.Printf("Get exam question error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal Server Error",
+			})
 			return
 		}
 
@@ -727,8 +716,77 @@ func DeleteExam(c *gin.Context) {
 	*/
 	id := c.Param("id")
 
-	query := "DELETE FROM ujian WHERE idUjian = ?"
-	_, err := config.DB.Exec(query, id)
+	// get important info for what to do next
+	query := `
+		SELECT
+			(SELECT jadwalMulai from ujian WHERE idUjian = ?) AS jadwal_mulai,
+			(SELECT COUNT(*) FROM soal_ujian WHERE idUjian = ?) AS question_count,
+			(SELECT COUNT(*) FROM ujian_ikut WHERE idUjian = ?) AS student_count
+	`
+
+	var startDatetime string
+	var questionCount, studentCount int
+
+	row := config.DB.QueryRow(query, id, id, id)
+
+	if err := row.Scan(&startDatetime, &questionCount, &studentCount); err != nil {
+		log.Printf("Get exam details error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal Server Error",
+		})
+		return
+	}
+
+	// check if datetime is at least 3 days away
+	target, err := time.Parse(time.DateTime, startDatetime)
+	if err != nil {
+		log.Printf("Parse start datetime error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal Server Error",
+		})
+		return
+	}
+
+	currentDatetime := time.Now()
+
+	duration := target.Sub(currentDatetime)
+	daysRemaining := int(duration.Hours() / 24)
+
+	fmt.Println("Days away: ", daysRemaining)
+
+	if daysRemaining < 3 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Exam deletion is not allowed less than 3 days from the scheduled start date.",
+		})
+		return
+	}
+
+	// remove questions and students if the count is above 0
+	query2 := "DELETE FROM soal_ujian WHERE idUjian = ?"
+	_, err := config.DB.Exec(query2, id)
+
+	if err != nil {
+		log.Printf("Delete exam error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	query3 := "DELETE FROM ujian_ikut WHERE idUjian = ?"
+	_, err := config.DB.Exec(query3, id)
+
+	if err != nil {
+		log.Printf("Delete exam error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	// remove exam once there's no longer foreign key constraint fails
+	query4 := "DELETE FROM ujian WHERE idUjian = ?"
+	_, err := config.DB.Exec(query4, id)
 
 	if err != nil {
 		log.Printf("Delete exam error: %v", err)
