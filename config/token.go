@@ -30,10 +30,10 @@ func GenerateJWT(id, email, role string) (string, error) {
 	return token.SignedString([]byte(os.Getenv("TOKEN_SECRET")))
 }
 
-func ValidateJWT(c *gin.Context) error {
+func ValidateJWT(c *gin.Context) (*jwt.Token, error) {
 	tokenString := ExtractToken(c)
 
-	_, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -41,10 +41,10 @@ func ValidateJWT(c *gin.Context) error {
 	})
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return token, nil
 }
 
 func ExtractToken(c *gin.Context) string {

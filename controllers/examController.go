@@ -229,6 +229,7 @@ func GetExams(c *gin.Context) {
 func GetExam(c *gin.Context) {
 	/*
 		Get an exam by ID from the database as JSON.
+		Instead of getting question and student counts, get all question and student IDs.
 	*/
 	id, err := strconv.Atoi(c.Param("id"))
 
@@ -258,40 +259,60 @@ func GetExam(c *gin.Context) {
 		return
 	}
 
-	// amount of questions - can be changed to list of questions and details later
-	query2 := "SELECT COUNT(*) AS question_count FROM soal_ujian WHERE idUjian = ?"
-	row2 := config.DB.QueryRow(query2, id)
+	// question IDs
+	query2 := "SELECT idSoal AS question_count FROM soal_ujian WHERE idUjian = ?"
+	row2, err := config.DB.Query(query2, id)
 
-	if err := row2.Scan(&e.QuestionCount); err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, gin.H{
-				"message": "404 - Exam questions not found",
-			})
-		} else {
-			log.Printf("Get exam question error: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "500 - Internal Server Error",
-			})
-		}
+	if err != nil {
+		log.Printf("Get exam questions error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal Server Error",
+		})
 		return
 	}
 
-	// amount of students - can be changed to list of students and details later
-	query3 := "SELECT COUNT(*) AS student_count FROM ujian_ikut WHERE idUjian = ?"
-	row3 := config.DB.QueryRow(query3, e.ExamID)
+	defer row2.Close()
 
-	if err := row3.Scan(&e.StudentCount); err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, gin.H{
-				"message": "404 - Exam students not found",
-			})
-		} else {
-			log.Printf("Get exam question error: %v", err)
+	for row2.Next() {
+		var idSoal int
+
+		if err := row2.Scan(&idSoal); err != nil {
+			log.Printf("Get exam questions error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "500 - Internal Server Error",
 			})
+			return
 		}
+
+		e.Questions = append(e.Questions, idSoal)
+	}
+
+	// students IDs
+	query3 := "SELECT nim AS student_count FROM ujian_ikut WHERE idUjian = ?"
+	row3, err := config.DB.Query(query3, e.ExamID)
+
+	if err != nil {
+		log.Printf("Get exam students error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal Server Error",
+		})
 		return
+	}
+
+	defer row3.Close()
+
+	for row3.Next() {
+		var nim string
+
+		if err := row3.Scan(&nim); err != nil {
+			log.Printf("Get exam students error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal Server Error",
+			})
+			return
+		}
+
+		e.Students = append(e.Students, nim)
 	}
 
 	c.JSON(http.StatusOK, e)

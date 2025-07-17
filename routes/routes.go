@@ -21,6 +21,11 @@ func SetupRoutes(r *gin.Engine) {
 	api := r.Group("/api")
 	api.Use(middlewares.JWTAuthMiddleware()) // Apply JWT middleware to all routes in this group
 
+	api.GET("/me", controllers.GetMe)
+
+	api.GET("/admin", controllers.GetDashboardAdminData)
+	//api.GET("/home/ongoing", controllers.GetOngoingExams);
+
 	api.POST("/admin/:id/password", controllers.UpdateAdminPassword)
 
 	api.GET("/users", controllers.GetAllUsers)

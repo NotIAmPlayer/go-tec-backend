@@ -36,7 +36,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	token, user, err := verifyLogin(request.Username, request.Password)
+	token, err := verifyLogin(request.Username, request.Password)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "400 - Invalid username or password"})
@@ -45,16 +45,10 @@ func Login(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"token": token,
-		"user": gin.H{
-			"id":    user.ID,
-			"name":  user.Name, // For frontend display
-			"email": user.Email,
-			"role":  user.Role, // 'mahasiswa' or 'admin'
-		},
 	})
 }
 
-func verifyLogin(username, password string) (string, UserData, error) {
+func verifyLogin(username, password string) (string, error) {
 	query := `
 		SELECT nim AS id, namaMhs AS nama, email, password, 'mahasiswa' AS role FROM mahasiswa WHERE nim = ? OR email = ?
 		UNION
@@ -71,19 +65,81 @@ func verifyLogin(username, password string) (string, UserData, error) {
 		} else {
 			log.Printf("Error scanning user data: %v", err)
 		}
-		return "", user, err
+		return "", err
 	}
 
 	if !comparePasswordHash(password, user.Password) {
 		log.Println("Password does not match")
-		return "", user, bcrypt.ErrMismatchedHashAndPassword
+		return "", bcrypt.ErrMismatchedHashAndPassword
 	}
 
 	token, err := config.GenerateJWT(user.ID, user.Email, user.Role)
 
 	if err != nil {
-		return "", user, err
+		return "", err
 	}
 
-	return token, user, nil
+	return token, nil
+}
+
+func GetMe(c *gin.Context) {
+	/*
+		Get logged in user's credentials (ID, name, email, role) for frontend purposes
+	*/
+	userID, exists := c.Get("user_id")
+
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "401 - Unauthorized"})
+		return
+	}
+
+	email, exists := c.Get("email")
+
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "401 - Unauthorized"})
+		return
+	}
+
+	role, exists := c.Get("role")
+
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "401 - Unauthorized"})
+		return
+	}
+
+	var query string
+
+	if role == "mahasiswa" {
+		query = "SELECT nim AS id, namaMhs AS nama, email, 'mahasiswa' AS role FROM mahasiswa WHERE nim = ? OR email = ?"
+	} else if role == "admin" {
+		query = "SELECT idAdmin AS id, namaAdmin AS nama, email, 'admin' AS role FROM admin WHERE idAdmin = ? OR email = ?"
+	} else {
+		c.JSON(http.StatusForbidden, gin.H{"error": "403 - Invalid role"})
+		return
+	}
+
+	row := config.DB.QueryRow(query, userID, email)
+
+	var u UserData
+
+	if err := row.Scan(&u.ID, &u.Name, &u.Email, &u.Role); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "404 - User data not found",
+			})
+		} else {
+			log.Printf("Get one user data error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal server error",
+			})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":    u.ID,
+		"name":  u.Name,
+		"email": u.Email,
+		"role":  u.Role,
+	})
 }
