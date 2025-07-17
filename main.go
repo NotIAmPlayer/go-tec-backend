@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"go-tec-backend/config"
 	"go-tec-backend/middlewares"
 	"go-tec-backend/routes"
@@ -25,6 +26,8 @@ func main() {
 		log.Fatal("DEBUG_MODE environment variable is not set")
 		return
 	}
+
+	fmt.Println("current gin mode:" + gin.Mode())
 
 	if useDebugMode == "false" {
 		gin.SetMode(gin.ReleaseMode)

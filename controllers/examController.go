@@ -464,29 +464,50 @@ func UpdateExam(c *gin.Context) {
 		args = append(args, e.ExamTitle)
 	}
 
+	jsDatetimeLayout := "2006-01-02T15:04"
+
 	if e.StartDatetime != "" {
 		// determine if it's a valid datetime
-		if _, err := time.Parse(time.DateTime, e.StartDatetime); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "400 - Invalid starting date and time",
-			})
-			return
+		// check for regular datetime and JS datetime format
+		_, err := time.Parse(time.DateTime, e.StartDatetime)
+		mysqlTime := e.StartDatetime
+
+		if err != nil {
+			pt, err2 := time.Parse(jsDatetimeLayout, e.StartDatetime)
+
+			if err2 != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "400 - Invalid starting date and time",
+				})
+				return
+			}
+			mysqlTime = pt.Format(time.DateTime)
 		}
 
 		updates = append(updates, "jadwalMulai = ?")
-		args = append(args, e.StartDatetime)
+		args = append(args, mysqlTime)
 	}
 
 	if e.EndDatetime != "" {
-		if _, err := time.Parse(time.DateTime, e.EndDatetime); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "400 - Invalid ending date and time",
-			})
-			return
+		// determine if it's a valid datetime
+		// check for regular datetime and JS datetime format
+		_, err := time.Parse(time.DateTime, e.EndDatetime)
+		mysqlTime := e.EndDatetime
+
+		if err != nil {
+			pt, err2 := time.Parse(jsDatetimeLayout, e.EndDatetime)
+
+			if err2 != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "400 - Invalid starting date and time",
+				})
+				return
+			}
+			mysqlTime = pt.Format(time.DateTime)
 		}
 
 		updates = append(updates, "jadwalSelesai = ?")
-		args = append(args, e.EndDatetime)
+		args = append(args, mysqlTime)
 	}
 
 	updateQuestions := false
