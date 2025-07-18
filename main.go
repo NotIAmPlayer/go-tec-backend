@@ -27,8 +27,6 @@ func main() {
 		return
 	}
 
-	fmt.Println("current gin mode:" + gin.Mode())
-
 	if useDebugMode == "false" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -44,6 +42,8 @@ func main() {
 	config.ConnectDB()
 
 	r := gin.Default()
+
+	fmt.Println("current gin mode:" + gin.Mode())
 
 	// Set up CORS middleware
 	r.Use(middlewares.HandleCORS(frontend))
