@@ -23,10 +23,18 @@ func SetupRoutes(r *gin.Engine) {
 
 	api.GET("/me", controllers.GetMe)
 
-	api.GET("/admin", controllers.GetDashboardAdminData)
-	//api.GET("/home/ongoing", controllers.GetOngoingExams);
+	api.GET("/self/password", controllers.UpdateSelfPassword)
 
-	api.POST("/admin/:id/password", controllers.UpdateAdminPassword)
+	api.GET("/student", controllers.GetUpcomingExams)
+	api.PUT("/student/exam/start", controllers.StartExamStudent)
+	api.PUT("/student/exam/finish", controllers.EndExamStudent)
+	api.GET("/student/exam/:id", controllers.GetExamQuestions)
+	api.POST("/student/exam/:id", controllers.AnswerExamQuestions)
+	api.GET("/student/answers/:id", controllers.GetExamAnswers)
+
+	api.GET("/admin", controllers.GetDashboardAdminData)
+	api.GET("/admin/:id/password", controllers.UpdateAdminPassword)
+	//api.GET("/home/ongoing", controllers.GetOngoingExams);
 
 	api.GET("/users", controllers.GetAllUsers)
 	api.GET("/users/count", controllers.GetUserCount)

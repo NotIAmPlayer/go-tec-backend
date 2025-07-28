@@ -18,6 +18,11 @@ type Users struct {
 	Password string `json:"password"`
 }
 
+type UpdatePasswordData struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
 func hashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
@@ -369,6 +374,114 @@ func UpdateAdminPassword(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("Update user password error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "200 - User password updated successfully",
+	})
+}
+
+func UpdateSelfPassword(c *gin.Context) {
+	/*
+		Update a user's own password. Usable for students and admins.
+		Requires old password to replace to a new password.
+	*/
+	role, exists := c.Get("role")
+
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "401 - Unauthorized"})
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "401 - Unauthorized"})
+		return
+	}
+
+	var d UpdatePasswordData
+
+	if err := c.ShouldBindJSON(&d); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid JSON data",
+		})
+		return
+	}
+
+	if d.OldPassword == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Old password needed to update",
+		})
+		return
+	}
+
+	if d.NewPassword == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - No password to update",
+		})
+		return
+	}
+
+	var query string
+
+	if role == "admin" {
+		query = "SELECT password FROM admin WHERE idAdmin = ?"
+	} else if role == "mahasiswa" {
+		query = "SELECT password FROM mahasiswa WHERE nim = ?"
+	}
+
+	rows := config.DB.QueryRow(query, userID)
+
+	var user UserData
+
+	if err := rows.Scan(&user.Password); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "404 - Current user not found",
+			})
+		} else {
+			log.Printf("Get self error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal server error",
+			})
+		}
+		return
+	}
+
+	if !comparePasswordHash(d.OldPassword, user.Password) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "400 - Old password is incorrect",
+		})
+		return
+	}
+
+	hash, err := hashPassword(d.NewPassword)
+
+	if err != nil {
+		log.Printf("Hashing password error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	var query2 string
+
+	if role == "admin" {
+		query2 = "UPDATE admin SET password = ? WHERE idAdmin = ?"
+	} else {
+		query2 = "UPDATE mahasiswa SET password = ? WHERE nim = ?"
+	}
+
+	_, err = config.DB.Exec(query2, hash, userID)
+
+	if err != nil {
+		log.Printf("Update self password error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "500 - Internal server error",
 		})
