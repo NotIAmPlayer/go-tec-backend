@@ -700,10 +700,10 @@ func GetExamScore(c *gin.Context) {
 	scores := []ExamScores{}
 
 	query := `
-		SELECT j.nim, m.namaMhs, COUNT(*) correctAnswer
+		SELECT j.nim, s.tipeSoal, m.namaMhs, COUNT(*) correctAnswer
 		FROM soal_jawaban j JOIN soal s ON j.idSoal = s.idSoal JOIN mahasiswa m ON j.nim = m.nim
 		WHERE j.jawaban = s.jawaban AND j.idUjian = ?
-		GROUP BY j.nim
+		GROUP BY j.nim, s.tipeSoal
 		ORDER BY j.nim
 	`
 	rows, err := config.DB.Query(query, id)
