@@ -25,39 +25,39 @@ func SetupRoutes(r *gin.Engine) {
 
 	api.GET("/self/password", controllers.UpdateSelfPassword)
 
-	api.GET("/student", controllers.GetUpcomingExams)
-	api.PUT("/student/exam/start", controllers.StartExamStudent)
-	api.PUT("/student/exam/finish", controllers.EndExamStudent)
-	api.GET("/student/exam/:id", controllers.GetExamQuestions)
-	api.POST("/student/exam/:id", controllers.AnswerExamQuestions)
-	api.GET("/student/answers/:id", controllers.GetExamAnswers)
+	student := api.Group("/student")
+	student.Use(middlewares.StudentMiddleware())
 
-	api.GET("/admin", controllers.GetDashboardAdminData)
-	api.GET("/admin/:id/password", controllers.UpdateAdminPassword)
-	//api.GET("/home/ongoing", controllers.GetOngoingExams);
+	student.GET("/home", controllers.GetUpcomingExams)
+	student.PUT("/exam/start", controllers.StartExamStudent)
+	student.PUT("/exam/finish", controllers.EndExamStudent)
+	student.GET("/exam/:id", controllers.GetExamQuestions)
+	student.POST("/exam/:id", controllers.AnswerExamQuestions)
+	student.GET("/answers/:id", controllers.GetExamAnswers)
 
-	api.GET("/users", controllers.GetAllUsers)
-	api.GET("/users/count", controllers.GetUserCount)
-	//api.GET("/users/page/:page", controllers.GetUsers) // unused, not needed for frontend
-	api.GET("/users/:nim", controllers.GetUser)
-	api.POST("/users", controllers.CreateUser)
-	api.PUT("/users/:nim", controllers.UpdateUser)
-	api.PUT("/users/:nim/password", controllers.UpdateUserPassword)
-	api.DELETE("/users/:nim", controllers.DeleteUser)
+	admin := api.Group("/admin")
+	admin.Use(middlewares.AdminMiddleware())
 
-	api.GET("/questions", controllers.GetAllQuestions)
-	api.GET("/questions/count", controllers.GetQuestionCount)
-	//api.GET("/questions/page/:page", controllers.GetQuestions) // unused, not needed for frontend
-	api.GET("/questions/:id", controllers.GetQuestion)
-	api.POST("/questions", controllers.CreateQuestion)
-	api.PUT("/questions/:id", controllers.UpdateQuestion)
-	api.DELETE("/questions/:id", controllers.DeleteQuestion)
+	admin.GET("/home", controllers.GetDashboardAdminData)
+	admin.GET("/password/:id/", controllers.UpdateAdminPassword)
+	admin.GET("/home/ongoing", controllers.GetOngoingExams)
 
-	api.GET("/exams", controllers.GetAllExams)
-	api.GET("/exams/count", controllers.GetExamCount)
-	//api.GET("/exams/page/:page", controllers.GetExams) // unused, not needed for frontend
-	api.GET("/exams/:id", controllers.GetExam)
-	api.POST("/exams", controllers.CreateExam)
-	api.PUT("/exams/:id", controllers.UpdateExam)
-	api.DELETE("/exams/:id", controllers.DeleteExam)
+	admin.GET("/users", controllers.GetAllUsers)
+	admin.GET("/users/:nim", controllers.GetUser)
+	admin.POST("/users", controllers.CreateUser)
+	admin.PUT("/users/:nim", controllers.UpdateUser)
+	admin.PUT("/users/:nim/password", controllers.UpdateUserPassword)
+	admin.DELETE("/users/:nim", controllers.DeleteUser)
+
+	admin.GET("/questions", controllers.GetAllQuestions)
+	admin.GET("/questions/:id", controllers.GetQuestion)
+	admin.POST("/questions", controllers.CreateQuestion)
+	admin.PUT("/questions/:id", controllers.UpdateQuestion)
+	admin.DELETE("/questions/:id", controllers.DeleteQuestion)
+
+	admin.GET("/exams", controllers.GetAllExams)
+	admin.GET("/exams/:id", controllers.GetExam)
+	admin.POST("/exams", controllers.CreateExam)
+	admin.PUT("/exams/:id", controllers.UpdateExam)
+	admin.DELETE("/exams/:id", controllers.DeleteExam)
 }

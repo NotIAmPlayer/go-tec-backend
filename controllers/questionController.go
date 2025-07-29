@@ -24,30 +24,6 @@ type Questions struct {
 	AudioPath    string `json:"audio_path" form:"audio_path"`
 }
 
-func GetQuestionCount(c *gin.Context) {
-	/*
-		Get the total number of questions in the database.
-		Used by the frontend for pagination.
-	*/
-	var count int
-
-	query := "SELECT COUNT(*) FROM soal"
-
-	row := config.DB.QueryRow(query)
-
-	if err := row.Scan(&count); err != nil {
-		log.Printf("Get question count error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "500 - Internal server error",
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"count": count,
-	})
-}
-
 func GetAllQuestions(c *gin.Context) {
 	/*
 		Get all questions from the database as JSON.
@@ -97,77 +73,6 @@ func GetAllQuestions(c *gin.Context) {
 		c.JSON(http.StatusOK, questions)
 	}
 }
-
-/* Unused
-func GetQuestions(c *gin.Context) {
-	// Get questions on a specific page from the database as JSON.
-
-	page, err := strconv.Atoi(c.Param("page"))
-
-	if err != nil || page < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid page number",
-		})
-		return
-	}
-
-	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
-
-	if err != nil || limit < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid page size number",
-		})
-		return
-	}
-
-	var offset = (page - 1) * limit
-
-	questions := []Questions{}
-
-	query := "SELECT idSoal, tipeSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban, audio FROM soal ORDER BY idSoal ASC LIMIT ? OFFSET ?"
-
-	rows, err := config.DB.Query(query, limit, offset)
-
-	if err != nil {
-		log.Printf("Get multiple questions error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "500 - Internal Server Error",
-		})
-		return
-	}
-
-	defer rows.Close()
-
-	for rows.Next() {
-		var q Questions
-
-		var audio sql.NullString
-		if err := rows.Scan(&q.QuestionID, &q.QuestionType, &q.QuestionText, &q.ChoiceA, &q.ChoiceB, &q.ChoiceC, &q.ChoiceD, &q.Answer, &audio); err != nil {
-			log.Printf("Get multiple questions error: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "500 - Internal Server Error",
-			})
-			return
-		}
-		if audio.Valid {
-			q.AudioPath = audio.String
-		} else {
-			q.AudioPath = ""
-		}
-
-		questions = append(questions, q)
-	}
-
-	if len(questions) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "404 - No questions found on page " + strconv.Itoa(page),
-		})
-		return
-	} else {
-		c.JSON(http.StatusOK, questions)
-	}
-}
-*/
 
 func GetQuestion(c *gin.Context) {
 	/*

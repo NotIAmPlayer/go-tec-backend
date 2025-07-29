@@ -24,28 +24,10 @@ type Exams struct {
 	StudentCount  int      `json:"student_count"`
 }
 
-func GetExamCount(c *gin.Context) {
-	/*
-		Get the total number of exams in the database.
-		Used by the frontend for pagination.
-	*/
-	var count int
-
-	query := "SELECT COUNT(*) FROM ujian"
-
-	row := config.DB.QueryRow(query)
-
-	if err := row.Scan(&count); err != nil {
-		log.Printf("Get exam count error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "500 - Internal server error",
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"count": count,
-	})
+type ExamScores struct {
+	Nim           string `json:"nim"`
+	Nama          string `json:"name"`
+	CorrectAnswer int    `json:"correct_answer"`
 }
 
 func GetAllExams(c *gin.Context) {
@@ -114,106 +96,6 @@ func GetAllExams(c *gin.Context) {
 		c.JSON(http.StatusOK, exams)
 	}
 }
-
-/* Unused
-func GetExams(c *gin.Context) {
-	//	Get exams on a specific page from the database as JSON.
-
-	page, err := strconv.Atoi(c.Param("page"))
-
-	if err != nil || page < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid page number",
-		})
-		return
-	}
-
-	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
-
-	if err != nil || limit < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid page size number",
-		})
-		return
-	}
-
-	var offset = (page - 1) * limit
-
-	exams := []Exams{}
-
-	query := "SELECT idUjian, namaUjian, jadwalMulai, jadwalSelesai FROM ujian ORDER BY idSoal ASC LIMIT ? OFFSET ?"
-	rows, err := config.DB.Query(query, limit, offset)
-
-	if err != nil {
-		log.Printf("Get multiple questions error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "500 - Internal Server Error",
-		})
-		return
-	}
-
-	defer rows.Close()
-
-	for rows.Next() {
-		var e Exams
-
-		if err := rows.Scan(&e.ExamID, &e.ExamTitle, &e.StartDatetime, &e.EndDatetime); err != nil {
-			log.Printf("Get multiple exams error: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "500 - Internal Server Error",
-			})
-			return
-		}
-
-		// amount of questions - no need to get details of every questions
-		query2 := "SELECT COUNT(*) AS question_count FROM soal_ujian WHERE idUjian = ?"
-		row2 := config.DB.QueryRow(query2, e.ExamID)
-
-		if err := row2.Scan(&e.QuestionCount); err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, gin.H{
-					"message": "404 - Exam questions not found",
-				})
-			} else {
-				log.Printf("Get exam question error: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"message": "500 - Internal Server Error",
-				})
-			}
-			return
-		}
-
-		// amount of students
-		query3 := "SELECT COUNT(*) AS student_count FROM ujian_ikut WHERE idUjian = ?"
-		row3 := config.DB.QueryRow(query3, e.ExamID)
-
-		if err := row3.Scan(&e.StudentCount); err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, gin.H{
-					"message": "404 - Exam questions not found",
-				})
-			} else {
-				log.Printf("Get exam question error: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"message": "500 - Internal Server Error",
-				})
-			}
-			return
-		}
-
-		exams = append(exams, e)
-	}
-
-	if len(exams) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "404 - No exams found",
-		})
-		return
-	} else {
-		c.JSON(http.StatusOK, exams)
-	}
-}
-*/
 
 func GetExam(c *gin.Context) {
 	/*
@@ -799,4 +681,63 @@ func DeleteExam(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "200 - Exam deleted successfully",
 	})
+}
+
+func GetExamScore(c *gin.Context) {
+	/*
+		Get an exam by ID from the database as JSON.
+		Instead of getting question and student counts, get all question and student IDs.
+	*/
+	id, err := strconv.Atoi(c.Param("id"))
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid exam ID",
+		})
+		return
+	}
+
+	scores := []ExamScores{}
+
+	query := `
+		SELECT j.nim, m.namaMhs, COUNT(*) correctAnswer
+		FROM soal_jawaban j JOIN soal s ON j.idSoal = s.idSoal JOIN mahasiswa m ON j.nim = m.nim
+		WHERE j.jawaban = s.jawaban AND j.idUjian = ?
+		GROUP BY j.nim
+		ORDER BY j.nim
+	`
+	rows, err := config.DB.Query(query, id)
+
+	if err != nil {
+		log.Printf("Get multiple exam scores error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal Server Error",
+		})
+		return
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var s ExamScores
+
+		if err := rows.Scan(&s.Nim, &s.Nama, &s.CorrectAnswer); err != nil {
+			log.Printf("Get multiple exam scores error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal Server Error",
+			})
+			return
+		}
+
+		scores = append(scores, s)
+	}
+
+	if len(scores) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "200 - No exam scores found",
+		})
+		return
+	} else {
+		c.JSON(http.StatusOK, scores)
+	}
 }

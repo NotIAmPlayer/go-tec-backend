@@ -29,30 +29,6 @@ func hashPassword(password string) (string, error) {
 	return string(bytes), err
 }
 
-func GetUserCount(c *gin.Context) {
-	/*
-		Get the total number of users in the database.
-		Used by the frontend for pagination.
-	*/
-	var count int
-
-	query := "SELECT COUNT(*) FROM mahasiswa"
-
-	row := config.DB.QueryRow(query)
-
-	if err := row.Scan(&count); err != nil {
-		log.Printf("Get user count error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "500 - Internal server error",
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"count": count,
-	})
-}
-
 func GetAllUsers(c *gin.Context) {
 	/*
 		Get all users from the database as JSON.
@@ -96,70 +72,6 @@ func GetAllUsers(c *gin.Context) {
 		c.JSON(http.StatusOK, users)
 	}
 }
-
-/*
-func GetUsers(c *gin.Context) {
-	// Get users on a specific page from the database as JSON.
-	page, err := strconv.Atoi(c.Param("page"))
-
-	if err != nil || page < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid page number",
-		})
-		return
-	}
-
-	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
-
-	if err != nil || limit < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid page size number",
-		})
-		return
-	}
-
-	var offset = (page - 1) * limit
-
-	users := []Users{}
-
-	query := "SELECT nim, namaMhs, email FROM mahasiswa ORDER BY idSoal ASC LIMIT ? OFFSET ?"
-
-	rows, err := config.DB.Query(query, limit, offset)
-
-	if err != nil {
-		log.Printf("Get multiple users error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "500 - Internal server error",
-		})
-		return
-	}
-
-	defer rows.Close()
-
-	for rows.Next() {
-		var u Users
-
-		if err := rows.Scan(&u.Nim, &u.Nama, &u.Email); err != nil {
-			log.Printf("Get multiple users error: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "500 - Internal server error",
-			})
-			return
-		}
-
-		users = append(users, u)
-	}
-
-	if len(users) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "404 - No users found on page " + strconv.Itoa(page),
-		})
-		return
-	} else {
-		c.JSON(http.StatusOK, users)
-	}
-}
-*/
 
 func GetUser(c *gin.Context) {
 	/*
