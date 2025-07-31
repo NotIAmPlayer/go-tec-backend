@@ -10,6 +10,8 @@ import (
 func SetupRoutes(r *gin.Engine) {
 	// Public routes - no authentication required
 	r.POST("/login", controllers.Login)
+	r.POST("/register", controllers.RegisterUser)
+
 	r.GET("/audio/:filename", controllers.GetAudioFile)
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
