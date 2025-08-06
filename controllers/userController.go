@@ -5,7 +5,6 @@ import (
 	"go-tec-backend/config"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -19,49 +18,26 @@ type Users struct {
 	Password string `json:"password"`
 }
 
+type UpdatePasswordData struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
 func hashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
 	return string(bytes), err
 }
 
-/*
-func comparePasswordHash(password string, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-
-	return err == nil
-}
-*/
-
-func GetUsers(c *gin.Context) {
+func GetAllUsers(c *gin.Context) {
 	/*
-		Get users on a specific page from the database as JSON.
+		Get all users from the database as JSON.
 	*/
-	page, err := strconv.Atoi(c.Param("page"))
-
-	if err != nil || page < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid page number",
-		})
-		return
-	}
-
-	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
-
-	if err != nil || limit < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid page size number",
-		})
-		return
-	}
-
-	var offset = (page - 1) * limit
-
 	users := []Users{}
 
-	query := "SELECT nim, namaMhs, email FROM mahasiswa LIMIT ? OFFSET ?"
+	query := "SELECT nim, namaMhs, email FROM mahasiswa ORDER BY nim ASC"
 
-	rows, err := config.DB.Query(query, limit, offset)
+	rows, err := config.DB.Query(query)
 
 	if err != nil {
 		log.Printf("Get multiple users error: %v", err)
@@ -88,8 +64,8 @@ func GetUsers(c *gin.Context) {
 	}
 
 	if len(users) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "404 - No users found on page " + strconv.Itoa(page),
+		c.JSON(http.StatusOK, gin.H{
+			"message": "200 - No users found",
 		})
 		return
 	} else {
@@ -260,6 +236,164 @@ func UpdateUserPassword(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("Update user password error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "200 - User password updated successfully",
+	})
+}
+
+func UpdateAdminPassword(c *gin.Context) {
+	/*
+		Update a user's password by NIM in the database from JSON data.
+	*/
+	id := c.Param("id")
+
+	var u Users
+
+	if err := c.ShouldBindJSON(&u); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid JSON data",
+		})
+		return
+	}
+
+	if u.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - No password to update",
+		})
+		return
+	}
+
+	hash, err := hashPassword(u.Password)
+
+	if err != nil {
+		log.Printf("Hashing password error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	u.Password = hash
+
+	query := "UPDATE admin SET password = ? WHERE idAdmin = ?"
+	_, err = config.DB.Exec(query, u.Password, id)
+
+	if err != nil {
+		log.Printf("Update user password error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "200 - User password updated successfully",
+	})
+}
+
+func UpdateSelfPassword(c *gin.Context) {
+	/*
+		Update a user's own password. Usable for students and admins.
+		Requires old password to replace to a new password.
+	*/
+	role, exists := c.Get("role")
+
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "401 - Unauthorized"})
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "401 - Unauthorized"})
+		return
+	}
+
+	var d UpdatePasswordData
+
+	if err := c.ShouldBindJSON(&d); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid JSON data",
+		})
+		return
+	}
+
+	if d.OldPassword == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Old password needed to update",
+		})
+		return
+	}
+
+	if d.NewPassword == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - No password to update",
+		})
+		return
+	}
+
+	var query string
+
+	if role == "admin" {
+		query = "SELECT password FROM admin WHERE idAdmin = ?"
+	} else if role == "mahasiswa" {
+		query = "SELECT password FROM mahasiswa WHERE nim = ?"
+	}
+
+	rows := config.DB.QueryRow(query, userID)
+
+	var user UserData
+
+	if err := rows.Scan(&user.Password); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "404 - Current user not found",
+			})
+		} else {
+			log.Printf("Get self error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal server error",
+			})
+		}
+		return
+	}
+
+	if !comparePasswordHash(d.OldPassword, user.Password) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "400 - Old password is incorrect",
+		})
+		return
+	}
+
+	hash, err := hashPassword(d.NewPassword)
+
+	if err != nil {
+		log.Printf("Hashing password error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	var query2 string
+
+	if role == "admin" {
+		query2 = "UPDATE admin SET password = ? WHERE idAdmin = ?"
+	} else {
+		query2 = "UPDATE mahasiswa SET password = ? WHERE nim = ?"
+	}
+
+	_, err = config.DB.Exec(query2, hash, userID)
+
+	if err != nil {
+		log.Printf("Update self password error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "500 - Internal server error",
 		})
