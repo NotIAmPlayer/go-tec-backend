@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"database/sql"
+	"fmt"
 	"go-tec-backend/config"
 	"log"
 	"net/http"
@@ -338,6 +339,8 @@ func StartExamStudent(c *gin.Context) {
 
 	duration := target.Sub(currentDatetime)
 
+	fmt.Print(duration.Seconds(), " ", e.StartDatetime, " ", currentDatetime.Format(time.DateTime))
+
 	if duration.Seconds() < 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "400 - Exam has already ended",
@@ -414,7 +417,9 @@ func EndExamStudent(c *gin.Context) {
 
 	currentDatetime := time.Now()
 
-	duration := currentDatetime.Sub(target)
+	duration := target.Sub(currentDatetime)
+
+	fmt.Print(duration.Seconds(), " ", e.StartDatetime, " ", currentDatetime.Format(time.DateTime))
 
 	if duration.Seconds() < 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
