@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Exams struct {
+type Exam struct {
 	ExamID        int      `json:"exam_id"`
 	ExamTitle     string   `json:"exam_title"`
 	StartDatetime string   `json:"start_datetime"`
@@ -34,7 +34,7 @@ func GetAllExams(c *gin.Context) {
 	/*
 		Get all exams from the database as JSON.
 	*/
-	exams := []Exams{}
+	exams := []Exam{}
 
 	query := "SELECT idUjian, namaUjian, jadwalMulai, jadwalSelesai FROM ujian ORDER BY jadwalMulai ASC, jadwalSelesai ASC, idUjian ASC"
 	rows, err := config.DB.Query(query)
@@ -50,7 +50,7 @@ func GetAllExams(c *gin.Context) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var e Exams
+		var e Exam
 
 		if err := rows.Scan(&e.ExamID, &e.ExamTitle, &e.StartDatetime, &e.EndDatetime); err != nil {
 			log.Printf("Get multiple exams error: %v", err)
@@ -111,7 +111,7 @@ func GetExam(c *gin.Context) {
 		return
 	}
 
-	var e Exams
+	var e Exam
 
 	query := "SELECT idUjian, namaUjian, jadwalMulai, jadwalSelesai FROM ujian WHERE idUjian = ?"
 	row := config.DB.QueryRow(query, id)
@@ -193,7 +193,7 @@ func CreateExam(c *gin.Context) {
 	/*
 		Create a new exam in the database from JSON data.
 	*/
-	var e Exams
+	var e Exam
 
 	if err := c.ShouldBindJSON(&e); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -237,7 +237,7 @@ func CreateExam(c *gin.Context) {
 	if len(e.Questions) > 0 {
 		for _, qid := range e.Questions {
 			// check if question with this id exists
-			var q Questions
+			var q Question
 			query3 := "SELECT isiSoal FROM soal WHERE idSoal = ?"
 
 			row := config.DB.QueryRow(query3, qid)
@@ -274,7 +274,7 @@ func CreateExam(c *gin.Context) {
 	if len(e.Students) > 0 {
 		for _, sid := range e.Students {
 			// check if student with this npm exists
-			var s Users
+			var s User
 			query3 := "SELECT namaMhs FROM mahasiswa WHERE nim = ?"
 
 			row := config.DB.QueryRow(query3, sid)
@@ -318,7 +318,7 @@ func UpdateExam(c *gin.Context) {
 	*/
 	id := c.Param("id")
 
-	var e Exams
+	var e Exam
 
 	if err := c.ShouldBindJSON(&e); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{

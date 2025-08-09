@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type Users struct {
+type User struct {
 	Nim      string `json:"nim"`
 	Nama     string `json:"name"`
 	Email    string `json:"email"`
@@ -33,7 +33,7 @@ func GetAllUsers(c *gin.Context) {
 	/*
 		Get all users from the database as JSON.
 	*/
-	users := []Users{}
+	users := []User{}
 
 	query := "SELECT nim, namaMhs, email FROM mahasiswa ORDER BY nim ASC"
 
@@ -50,7 +50,7 @@ func GetAllUsers(c *gin.Context) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var u Users
+		var u User
 
 		if err := rows.Scan(&u.Nim, &u.Nama, &u.Email); err != nil {
 			log.Printf("Get multiple users error: %v", err)
@@ -79,7 +79,7 @@ func GetUser(c *gin.Context) {
 	*/
 	nim := c.Param("nim")
 
-	var u Users
+	var u User
 
 	query := "SELECT nim, namaMhs, email FROM mahasiswa WHERE nim = ?"
 
@@ -106,7 +106,7 @@ func CreateUser(c *gin.Context) {
 	/*
 		Create a new user in the database from JSON data.
 	*/
-	var u Users
+	var u User
 
 	if err := c.ShouldBindJSON(&u); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -150,7 +150,7 @@ func UpdateUser(c *gin.Context) {
 	*/
 	nim := c.Param("nim")
 
-	var u Users
+	var u User
 
 	if err := c.ShouldBindJSON(&u); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -203,7 +203,7 @@ func UpdateUserPassword(c *gin.Context) {
 	*/
 	nim := c.Param("nim")
 
-	var u Users
+	var u User
 
 	if err := c.ShouldBindJSON(&u); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -253,7 +253,7 @@ func UpdateAdminPassword(c *gin.Context) {
 	*/
 	id := c.Param("id")
 
-	var u Users
+	var u User
 
 	if err := c.ShouldBindJSON(&u); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{

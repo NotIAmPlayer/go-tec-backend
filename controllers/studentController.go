@@ -89,64 +89,70 @@ func GetExamQuestions(c *gin.Context) {
 		Uses the given exam ID to give out all of the questions.
 	*/
 
-	id, err := strconv.Atoi(c.Param("id"))
+	/*
+		id, err := strconv.Atoi(c.Param("id"))
 
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "400 - Invalid exam ID",
-		})
-		return
-	}
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "400 - Invalid exam ID",
+			})
+			return
+		}
 
-	questions := []Questions{}
+		questions := []Question{}
 
-	query := `
-		SELECT u.idSoal, s.tipeSoal, s.isiSoal, s.pilihanA, s.pilihanB, s.pilihanC, s.pilihanD, s.audio
-		FROM soal_ujian u JOIN soal s ON u.idSoal = s.idSoal
-		WHERE u.idUjian = ?
-		ORDER BY s.tipeSoal, u.idSoal
-	`
+		query := `
+			SELECT u.idSoal, s.tipeSoal, s.isiSoal, s.pilihanA, s.pilihanB, s.pilihanC, s.pilihanD, s.audio
+			FROM soal_ujian u JOIN soal s ON u.idSoal = s.idSoal
+			WHERE u.idUjian = ?
+			ORDER BY s.tipeSoal, u.idSoal
+		`
 
-	rows, err := config.DB.Query(query, id)
+		rows, err := config.DB.Query(query, id)
 
-	if err != nil {
-		log.Printf("Get exam questions (student) error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "500 - Internal Server Error",
-		})
-		return
-	}
-
-	defer rows.Close()
-
-	for rows.Next() {
-		var q Questions
-
-		var audio sql.NullString
-		if err := rows.Scan(&q.QuestionID, &q.QuestionType, &q.QuestionText, &q.ChoiceA, &q.ChoiceB, &q.ChoiceC, &q.ChoiceD, &audio); err != nil {
+		if err != nil {
 			log.Printf("Get exam questions (student) error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "500 - Internal Server Error",
 			})
 			return
 		}
-		if audio.Valid {
-			q.AudioPath = audio.String
-		} else {
-			q.AudioPath = ""
+
+		defer rows.Close()
+
+		for rows.Next() {
+			var q Question
+
+			var audio sql.NullString
+			if err := rows.Scan(&q.QuestionID, &q.QuestionType, &q.QuestionText, &q.ChoiceA, &q.ChoiceB, &q.ChoiceC, &q.ChoiceD, &audio); err != nil {
+				log.Printf("Get exam questions (student) error: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "500 - Internal Server Error",
+				})
+				return
+			}
+			if audio.Valid {
+				q.AudioPath = audio.String
+			} else {
+				q.AudioPath = ""
+			}
+
+			questions = append(questions, q)
 		}
 
-		questions = append(questions, q)
-	}
+		if len(questions) == 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "200 - No questions found",
+			})
+			return
+		} else {
+			c.JSON(http.StatusOK, questions)
+		}
+	*/
 
-	if len(questions) == 0 {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "200 - No questions found",
-		})
-		return
-	} else {
-		c.JSON(http.StatusOK, questions)
-	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "200 - work in progress",
+	})
 }
 
 func AnswerExamQuestions(c *gin.Context) {
@@ -307,7 +313,7 @@ func StartExamStudent(c *gin.Context) {
 		return
 	}
 
-	var e Exams
+	var e Exam
 
 	query := "SELECT idUjian, namaUjian, jadwalMulai, jadwalSelesai FROM ujian WHERE idUjian = ?"
 	row := config.DB.QueryRow(query, a.ExamID)
@@ -387,7 +393,7 @@ func EndExamStudent(c *gin.Context) {
 		return
 	}
 
-	var e Exams
+	var e Exam
 
 	query := "SELECT idUjian, namaUjian, jadwalMulai, jadwalSelesai FROM ujian WHERE idUjian = ?"
 	row := config.DB.QueryRow(query, a.ExamID)

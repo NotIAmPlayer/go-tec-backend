@@ -12,7 +12,7 @@ import (
 )
 
 func RegisterUser(c *gin.Context) {
-	var u Users
+	var u User
 
 	if err := c.ShouldBindJSON(&u); err != nil {
 		c.JSON(400, gin.H{
@@ -51,7 +51,7 @@ func RegisterUser(c *gin.Context) {
 	// check if user already exists (via NIM or email)
 	query := "SELECT nim, namaMhs, email, password FROM mahasiswa WHERE nim = ? OR email = ?"
 
-	var existingUser Users
+	var existingUser User
 
 	row := config.DB.QueryRow(query, u.Nim, u.Email)
 
