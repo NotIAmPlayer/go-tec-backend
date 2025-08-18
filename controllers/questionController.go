@@ -1,9 +1,13 @@
 package controllers
 
 import (
+	"database/sql"
 	"encoding/json"
-	"fmt"
+	"go-tec-backend/config"
+	"log"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,7 +26,7 @@ type QuestionBatch struct {
 	BatchID      int        `json:"batch_id" form:"batch_id"`
 	BatchType    string     `json:"batch_type" form:"batch_type"`
 	BatchText    string     `json:"batch_text" form:"batch_text"`
-	QuestionJSON string     `form:"questions"`
+	QuestionJSON string     `json:"question_json" form:"questions"`
 	Questions    []Question `json:"questions"`
 	AudioPath    string     `json:"audio_path" form:"audio_path"`
 }
@@ -84,6 +88,96 @@ func GetAllQuestions(c *gin.Context) {
 	})
 }
 
+func GetAllQuestionBatches(c *gin.Context) {
+	/*
+		Get all question batches in the database as JSON.
+	*/
+
+	questionBatches := []QuestionBatch{}
+
+	query := "SELECT idBatch, tipeBatch, textBatch, audio FROM batch_soal ORDER BY idBatch ASC"
+	rows, err := config.DB.Query(query)
+
+	if err != nil {
+		log.Printf("Get multiple question batches error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal Server Error",
+		})
+		return
+	}
+
+	defer rows.Close()
+
+	batchFailed := false
+
+	for rows.Next() {
+		var b QuestionBatch
+		var audio sql.NullString
+
+		// question batch
+		if err := rows.Scan(&b.BatchID, &b.BatchType, &b.BatchText, &audio); err != nil {
+			log.Printf("Get multiple question batches error: %v", err)
+			batchFailed = true
+			break
+		}
+
+		if audio.Valid {
+			b.AudioPath = audio.String
+		} else {
+			b.AudioPath = ""
+		}
+
+		// all questions in a batch
+		query2 := "SELECT idSoal, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban FROM soal WHERE idBatch = ? ORDER BY idSoal ASC"
+		rows2, err := config.DB.Query(query2, b.BatchID)
+
+		if err != nil {
+			log.Printf("Get multiple question batches error: %v", err)
+			batchFailed = true
+			break
+		}
+
+		questionFailed := false
+
+		for rows2.Next() {
+			var q Question
+
+			if err := rows2.Scan(&q.QuestionID, &q.QuestionText, &q.ChoiceA, &q.ChoiceB, &q.ChoiceC, &q.ChoiceD, &q.Answer); err != nil {
+				log.Printf("Get multiple question batches error: %v", err)
+				questionFailed = true
+				break
+			}
+
+			b.Questions = append(b.Questions, q)
+		}
+
+		if questionFailed {
+			batchFailed = true
+			rows2.Close()
+			break
+		}
+
+		questionBatches = append(questionBatches, b)
+		rows2.Close()
+	}
+
+	if batchFailed {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal Server Error",
+		})
+		return
+	}
+
+	if len(questionBatches) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "200 - No questions found",
+		})
+		return
+	} else {
+		c.JSON(http.StatusOK, questionBatches)
+	}
+}
+
 func GetQuestion(c *gin.Context) {
 	/*
 		Get a question by ID from the database as JSON.
@@ -134,9 +228,10 @@ func GetQuestion(c *gin.Context) {
 }
 
 func CreateQuestionBatch(c *gin.Context) {
+	/*
+		Create question batches in the database from a form data.
+	*/
 	var b QuestionBatch
-
-	DumpContext(c)
 
 	if err := c.ShouldBind(&b); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -166,12 +261,7 @@ func CreateQuestionBatch(c *gin.Context) {
 		return
 	}
 
-	/*
-		if b.BatchType == "listening" {
-
-		}
-	*/
-
+	// turn the json string for array of questions back to array of questions
 	err := json.Unmarshal([]byte(b.QuestionJSON), &b.Questions)
 
 	if err != nil {
@@ -181,11 +271,154 @@ func CreateQuestionBatch(c *gin.Context) {
 		return
 	}
 
-	fmt.Println(b.BatchID, b.BatchType, b.BatchText)
+	// debug prints for each questions
+	/*
+		fmt.Println(b.BatchID, b.BatchType, b.BatchText)
 
-	for _, q := range b.Questions {
-		fmt.Println(q)
+		for _, q := range b.Questions {
+			fmt.Println(q)
+		}
+	*/
+
+	var filename string
+
+	if b.BatchType == "listening" {
+		file, err := c.FormFile("file")
+
+		if err != nil && err != http.ErrMissingFile {
+			log.Printf("File upload error: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "400 - Invalid file upload",
+			})
+			return
+		}
+
+		if file == nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "400 - File is required",
+			})
+			return
+		}
+
+		// If uploads directory does not exist, create it
+		if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+			if err := os.Mkdir("uploads", 0755); err != nil {
+				log.Printf("Directory creation error: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "500 - Internal server error",
+				})
+				return
+			}
+			log.Println("Uploads directory created")
+		}
+
+		// Save file to the uploads directory
+		dest := "uploads/" + file.Filename
+
+		// Limit file size to 10MB
+		if file.Size > 10*1024*1024 {
+			log.Printf("File size error: %s exceeds 10MB limit", file.Filename)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "400 - File size exceeds 10MB limit",
+			})
+			return
+		}
+
+		if err := c.SaveUploadedFile(file, dest); err != nil {
+			log.Printf("File save error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal server error",
+			})
+			return
+		}
+
+		log.Printf("File uploaded successfully: %s", dest)
+		filename = file.Filename
 	}
+
+	createdTime := time.Now().Format(time.DateTime)
+
+	// use a transaction for multi-table creation
+	tx, err := config.DB.Begin()
+
+	if err != nil {
+		log.Printf("Begin transaction error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	commited := false
+
+	defer func() {
+		if !commited {
+			tx.Rollback()
+		}
+	}()
+
+	query := "INSERT INTO batch_soal (tipeBatch, textBatch, audio, dateCreated, dateUpdated) VALUES (?, ?, ?, ?, ?)"
+	_, err = tx.Exec(query, b.BatchType, b.BatchText, filename, createdTime, createdTime)
+
+	if err != nil {
+		log.Printf("Create question batch error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	// fetch the newly created question batch's id
+	query2 := "SELECT idBatch FROM batch_soal WHERE dateCreated = ?"
+	row := tx.QueryRow(query2, createdTime)
+
+	if err := row.Scan(&b.BatchID); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "404 - Exam not found",
+			})
+			return
+		}
+		log.Printf("Get exam error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal Server Error",
+		})
+		return
+	}
+
+	questionsFailed := false
+
+	// time to actually upload each questions
+	for _, q := range b.Questions {
+		query3 := "INSERT INTO soal (idBatch, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban) VALUES (?, ?, ?, ?, ?, ?, ?)"
+		_, err := tx.Exec(query3, b.BatchID, q.QuestionText, q.ChoiceA, q.ChoiceB, q.ChoiceC, q.ChoiceD, q.Answer)
+
+		if err != nil {
+			log.Printf("Create question error: %v", err)
+			questionsFailed = true
+			break
+		}
+	}
+
+	if questionsFailed {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("Commit transaction error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	commited = true
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "201 - Question batches created successfully",
+	})
 }
 
 func CreateQuestion(c *gin.Context) {
