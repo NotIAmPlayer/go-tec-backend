@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -534,6 +535,286 @@ func CreateQuestion(c *gin.Context) {
 	})
 }
 
+func UpdateQuestionBatch(c *gin.Context) {
+	/*
+		Update question batches in the database from a form data.
+	*/
+	id := c.Param("id")
+
+	var b QuestionBatch
+
+	if err := c.ShouldBind(&b); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid form data",
+		})
+		return
+	}
+
+	if b.QuestionJSON == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Questions cannot be empty",
+		})
+		return
+	}
+
+	if b.BatchType != "listening" && b.BatchType != "reading" && b.BatchType != "grammar" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid question type",
+		})
+		return
+	}
+
+	if b.BatchType == "reading" && b.BatchText == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Reading question batches must have a reading text.",
+		})
+		return
+	}
+
+	// turn the json string for array of questions back to array of questions
+	err := json.Unmarshal([]byte(b.QuestionJSON), &b.Questions)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid questions JSON string",
+		})
+		return
+	}
+
+	file, err := c.FormFile("file")
+
+	if err != nil && err != http.ErrMissingFile {
+		log.Printf("File upload error: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid file upload",
+		})
+		return
+	}
+
+	var filename string
+
+	if file != nil {
+		// If uploads directory does not exist, create it
+		if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+			if err := os.Mkdir("uploads", 0755); err != nil {
+				log.Printf("Directory creation error: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "500 - Internal server error",
+				})
+				return
+			}
+			log.Println("Uploads directory created")
+		}
+
+		// Save file to the uploads directory
+		dest := "uploads/" + file.Filename
+
+		if file.Size > 10*1024*1024 {
+			log.Printf("File size error: %s exceeds 10MB limit", file.Filename)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "400 - File size exceeds 10MB limit",
+			})
+			return
+		}
+
+		if err := c.SaveUploadedFile(file, dest); err != nil {
+			log.Printf("File save error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal server error",
+			})
+			return
+		}
+
+		log.Printf("File uploaded successfully: %s", dest)
+		filename = file.Filename
+	}
+
+	// use a transaction for multi-table creation
+	tx, err := config.DB.Begin()
+
+	if err != nil {
+		log.Printf("Begin transaction error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	commited := false
+
+	defer func() {
+		if !commited {
+			tx.Rollback()
+		}
+	}()
+
+	updates := []string{}
+	args := []interface{}{}
+
+	if file != nil {
+		updates = append(updates, "audio = ?")
+		args = append(args, filename)
+	}
+
+	if b.BatchType != "" && (b.BatchType == "listening" || b.BatchType == "reading" || b.BatchType == "grammar") {
+		updates = append(updates, "tipeBatch = ?")
+		args = append(args, b.BatchType)
+	}
+
+	if b.BatchText != "" {
+		updates = append(updates, "textBatch = ?")
+	}
+
+	updateQuestions := false
+	questionsFailed := false
+
+	if len(b.Questions) > 0 {
+		query := "SELECT idSoal FROM soal WHERE idBatch = ?"
+		rows, err := tx.Query(query, id)
+
+		if err != nil {
+			log.Printf("Get batch questions error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal server error",
+			})
+			return
+		}
+
+		defer rows.Close()
+
+		oldQuestionIDs := make(map[int]bool)
+
+		for rows.Next() {
+			var qid int
+
+			if err := rows.Scan(&qid); err != nil {
+				log.Printf("Get batch questions error: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "500 - Internal server error",
+				})
+				return
+			}
+
+			oldQuestionIDs[qid] = true
+		}
+
+		newQuestionIDs := make(map[int]bool)
+
+		for _, q := range b.Questions {
+			if q.QuestionID != 0 {
+				newQuestionIDs[q.QuestionID] = true
+			}
+		}
+
+		var toAdd []Question
+		var toUpdate []Question
+		var toDelete []int
+
+		for _, q := range b.Questions {
+			if q.QuestionID == 0 {
+				toAdd = append(toAdd, q)
+			}
+
+			if oldQuestionIDs[q.QuestionID] {
+				toUpdate = append(toUpdate, q)
+			}
+		}
+
+		for qid := range oldQuestionIDs {
+			if !newQuestionIDs[qid] {
+				toDelete = append(toDelete, qid)
+			}
+		}
+
+		if len(toAdd) > 0 {
+			for _, q := range toAdd {
+				query2 := "INSERT INTO soal (idBatch, isiSoal, pilihanA, pilihanB, pilihanC, pilihanD, jawaban) VALUES (?, ?, ?, ?, ?, ?, ?)"
+				_, err := tx.Exec(query2, id, q.QuestionText, q.ChoiceA, q.ChoiceB, q.ChoiceC, q.ChoiceD, q.Answer)
+
+				if err != nil {
+					log.Printf("Create question (update) error: %v", err)
+					questionsFailed = true
+					break
+				}
+			}
+		}
+
+		if len(toUpdate) > 0 && !questionsFailed {
+			for _, q := range toUpdate {
+				query2 := "UPDATE soal SET isiSoal = ?, pilihanA = ?, pilihanB = ?, pilihanC = ?, pilihanD = ?, jawaban = ? WHERE idSoal = ? AND idBatch = ?"
+				_, err := tx.Exec(query2, q.QuestionText, q.ChoiceA, q.ChoiceB, q.ChoiceC, q.ChoiceD, q.Answer, q.QuestionID, id)
+
+				if err != nil {
+					log.Printf("Update question (update) error: %v", err)
+					questionsFailed = true
+					break
+				}
+			}
+		}
+
+		if len(toDelete) > 0 && !questionsFailed {
+			for _, qid := range toDelete {
+				query2 := "DELETE FROM soal WHERE idSoal = ? AND idBatch = ?"
+				_, err := tx.Exec(query2, qid, id)
+
+				if err != nil {
+					log.Printf("Delete question (update) error: %v", err)
+					questionsFailed = true
+					break
+				}
+			}
+		}
+
+		if questionsFailed {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal server error",
+			})
+			return
+		}
+
+		updateQuestions = true
+	}
+
+	if len(updates) == 0 && !updateQuestions {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - No fields to update",
+		})
+		return
+	}
+
+	updatedTime := time.Now().Format(time.DateTime)
+
+	updates = append(updates, "dateUpdated = ?")
+	args = append(args, updatedTime)
+
+	args = append(args, id)
+
+	query := "UPDATE batch_soal SET " + strings.Join(updates, ", ") + " WHERE idBatch = ?"
+	_, err = tx.Exec(query, args...)
+
+	if err != nil {
+		log.Printf("Create question batch error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("Commit transaction error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	commited = true
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Question batch updated successfully.",
+	})
+}
+
 func UpdateQuestion(c *gin.Context) {
 	/*
 		Update a question in the database from JSON data.
@@ -670,6 +951,56 @@ func UpdateQuestion(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "200 - work in progress",
+	})
+}
+
+func DeleteQuestionBatch(c *gin.Context) {
+	id := c.Param("id")
+
+	query := "SELECT COUNT(*) batchUsedCount FROM batch_ujian WHERE idBatch = ?"
+	row := config.DB.QueryRow(query, id)
+
+	var batchUsedCount int
+
+	if err := row.Scan(&batchUsedCount); err != nil {
+		log.Printf("Get batch details error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal Server Error",
+		})
+		return
+	}
+
+	if batchUsedCount > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - This batch is used in at least one exam.",
+		})
+		return
+	}
+
+	query2 := "DELETE FROM soal WHERE idBatch = ?"
+	_, err := config.DB.Exec(query2, id)
+
+	if err != nil {
+		log.Printf("Delete exam error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	query3 := "DELETE FROM batch_soal WHERE idBatch = ?"
+	_, err = config.DB.Exec(query3, id)
+
+	if err != nil {
+		log.Printf("Delete exam error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "200 - Question batch deleted successfully",
 	})
 }
 

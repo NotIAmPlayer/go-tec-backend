@@ -61,7 +61,7 @@ func GetAllExams(c *gin.Context) {
 		}
 
 		// amount of questions - no need to get details of every questions
-		query2 := "SELECT COUNT(*) AS question_count FROM soal_ujian WHERE idUjian = ?"
+		query2 := "SELECT COUNT(*) question_count FROM batch_ujian b JOIN soal s ON b.idBatch = s.idBatch WHERE idUjian = ?"
 		row2 := config.DB.QueryRow(query2, e.ExamID)
 
 		if err := row2.Scan(&e.QuestionCount); err != nil {
@@ -131,7 +131,7 @@ func GetExam(c *gin.Context) {
 	}
 
 	// question IDs
-	query2 := "SELECT idSoal AS question_count FROM soal_ujian WHERE idUjian = ?"
+	query2 := "SELECT idBatch FROM batch_ujian WHERE idUjian = ?"
 	row2, err := config.DB.Query(query2, id)
 
 	if err != nil {
@@ -238,7 +238,7 @@ func CreateExam(c *gin.Context) {
 		for _, qid := range e.Questions {
 			// check if question with this id exists
 			var q Question
-			query3 := "SELECT isiSoal FROM soal WHERE idSoal = ?"
+			query3 := "SELECT idBatch FROM batch_soal WHERE idBatch = ?"
 
 			row := config.DB.QueryRow(query3, qid)
 
@@ -257,7 +257,7 @@ func CreateExam(c *gin.Context) {
 			}
 
 			// if exists, place the question id for that exam
-			query4 := "INSERT INTO soal_ujian (idUjian, idSoal) VALUES (?, ?)"
+			query4 := "INSERT INTO batch_ujian (idUjian, idBatch) VALUES (?, ?)"
 			_, err := config.DB.Exec(query4, e.ExamID, qid)
 
 			if err != nil {
@@ -387,7 +387,7 @@ func UpdateExam(c *gin.Context) {
 	// TODO: add questions and students updates
 	if len(e.Questions) > 0 {
 		// get every existing questions on this exam
-		q := "SELECT idSoal FROM soal_ujian WHERE idUjian = ?"
+		q := "SELECT idBatch FROM batch_ujian WHERE idUjian = ?"
 		rows, err := config.DB.Query(q, id)
 
 		if err != nil {
@@ -441,7 +441,7 @@ func UpdateExam(c *gin.Context) {
 
 		if len(toAdd) > 0 {
 			for _, qid := range toAdd {
-				q2 := "INSERT INTO soal_ujian (idUjian, idSoal) VALUES (?, ?)"
+				q2 := "INSERT INTO batch_ujian (idUjian, idBatch) VALUES (?, ?)"
 				_, err := config.DB.Exec(q2, id, qid)
 
 				if err != nil {
@@ -457,7 +457,7 @@ func UpdateExam(c *gin.Context) {
 
 		if len(toDelete) > 0 {
 			for _, qid := range toDelete {
-				q3 := "DELETE FROM soal_ujian WHERE idUjian = ? AND idSoal = ?"
+				q3 := "DELETE FROM batch_ujian WHERE idUjian = ? AND idBatch = ?"
 				_, err := config.DB.Exec(q3, id, qid)
 
 				if err != nil {
@@ -516,13 +516,13 @@ func UpdateExam(c *gin.Context) {
 		var toDelete []string
 
 		for _, nim := range e.Students {
-			if !oldStudentNIMs[id] {
+			if !oldStudentNIMs[nim] {
 				toAdd = append(toAdd, nim)
 			}
 		}
 
 		for nim := range oldStudentNIMs {
-			if !newStudentNIMs[id] {
+			if !newStudentNIMs[nim] {
 				toDelete = append(toDelete, nim)
 			}
 		}
@@ -602,16 +602,16 @@ func DeleteExam(c *gin.Context) {
 	query := `
 		SELECT
 			(SELECT jadwalMulai from ujian WHERE idUjian = ?) AS jadwal_mulai,
-			(SELECT COUNT(*) FROM soal_ujian WHERE idUjian = ?) AS question_count,
+			(SELECT COUNT(*) FROM batch_ujian WHERE idUjian = ?) AS batch_count,
 			(SELECT COUNT(*) FROM ujian_ikut WHERE idUjian = ?) AS student_count
 	`
 
 	var startDatetime string
-	var questionCount, studentCount int
+	var batchCount, studentCount int
 
 	row := config.DB.QueryRow(query, id, id, id)
 
-	if err := row.Scan(&startDatetime, &questionCount, &studentCount); err != nil {
+	if err := row.Scan(&startDatetime, &batchCount, &studentCount); err != nil {
 		log.Printf("Get exam details error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "500 - Internal Server Error",
@@ -644,26 +644,30 @@ func DeleteExam(c *gin.Context) {
 	}
 
 	// remove questions and students if the count is above 0
-	query2 := "DELETE FROM soal_ujian WHERE idUjian = ?"
-	_, err2 := config.DB.Exec(query2, id)
+	if batchCount > 0 {
+		query2 := "DELETE FROM soal_ujian WHERE idUjian = ?"
+		_, err2 := config.DB.Exec(query2, id)
 
-	if err2 != nil {
-		log.Printf("Delete exam error: %v", err2)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "500 - Internal server error",
-		})
-		return
+		if err2 != nil {
+			log.Printf("Delete exam error: %v", err2)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal server error",
+			})
+			return
+		}
 	}
 
-	query3 := "DELETE FROM ujian_ikut WHERE idUjian = ?"
-	_, err3 := config.DB.Exec(query3, id)
+	if studentCount > 0 {
+		query3 := "DELETE FROM ujian_ikut WHERE idUjian = ?"
+		_, err3 := config.DB.Exec(query3, id)
 
-	if err3 != nil {
-		log.Printf("Delete exam error: %v", err3)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "500 - Internal server error",
-		})
-		return
+		if err3 != nil {
+			log.Printf("Delete exam error: %v", err3)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "500 - Internal server error",
+			})
+			return
+		}
 	}
 
 	// remove exam once there's no longer foreign key constraint fails

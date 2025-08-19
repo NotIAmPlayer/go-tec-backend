@@ -54,8 +54,8 @@ func SetupRoutes(r *gin.Engine) {
 	admin.GET("/questions", controllers.GetAllQuestionBatches)
 	admin.GET("/questions/:id", controllers.GetQuestion)
 	admin.POST("/questions", controllers.CreateQuestionBatch)
-	admin.PUT("/questions/:id", controllers.UpdateQuestion)
-	admin.DELETE("/questions/:id", controllers.DeleteQuestion)
+	admin.PUT("/questions/:id", controllers.UpdateQuestionBatch)
+	admin.DELETE("/questions/:id", controllers.DeleteQuestionBatch)
 
 	admin.GET("/exams", controllers.GetAllExams)
 	admin.GET("/exams/:id", controllers.GetExam)
