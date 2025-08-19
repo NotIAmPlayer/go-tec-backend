@@ -19,6 +19,8 @@ func SetupRoutes(r *gin.Engine) {
 		})
 	})
 
+	r.GET("/ws", controllers.ExamWebsocket)
+
 	// Main bulk of API routes - requires JWT authentication
 	api := r.Group("/api")
 	api.Use(middlewares.JWTAuthMiddleware()) // Apply JWT middleware to all routes in this group
