@@ -663,6 +663,7 @@ func UpdateQuestionBatch(c *gin.Context) {
 
 	if b.BatchText != "" {
 		updates = append(updates, "textBatch = ?")
+		args = append(args, b.BatchText)
 	}
 
 	updateQuestions := false
@@ -793,7 +794,7 @@ func UpdateQuestionBatch(c *gin.Context) {
 	_, err = tx.Exec(query, args...)
 
 	if err != nil {
-		log.Printf("Create question batch error: %v", err)
+		log.Printf("Update question batch error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "500 - Internal server error",
 		})
