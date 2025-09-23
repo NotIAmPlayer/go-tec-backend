@@ -2,9 +2,9 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
-
 	"go-tec-backend/controllers"
 	"go-tec-backend/middlewares"
+	"fmt"
 )
 
 func SetupRoutes(r *gin.Engine) {
@@ -38,6 +38,8 @@ func SetupRoutes(r *gin.Engine) {
 	student.GET("/exam/:id", controllers.GetExamQuestions)
 	student.POST("/exam/:id", controllers.AnswerExamQuestions)
 	student.GET("/answers/:id", controllers.GetExamAnswers)
+	student.POST("/logs", controllers.LogActivity)
+	student.POST("/exam/submit/:nim/:idUjian", controllers.SubmitExam)
 
 	admin := api.Group("/admin")
 	admin.Use(middlewares.AdminMiddleware())
@@ -64,4 +66,17 @@ func SetupRoutes(r *gin.Engine) {
 	admin.POST("/exams", controllers.CreateExam)
 	admin.PUT("/exams/:id", controllers.UpdateExam)
 	admin.DELETE("/exams/:id", controllers.DeleteExam)
+
+	admin.GET("/scores/:examID", controllers.GetScoresByExam)
+	admin.GET("/logs/:examID", controllers.GetLogsByExam)
+	admin.GET("/logs/:examID/:nim", controllers.GetLogsByStudent)
+	admin.DELETE("/logs/:examID/:nim", controllers.DeleteLogsByStudent)
+	admin.GET("/scores/:examID/", controllers.GetScoresByExam)
+
+	
+	for _, ri := range r.Routes() {
+		fmt.Println("Registered route:", ri.Method, ri.Path)
+	}
+	
+	
 }

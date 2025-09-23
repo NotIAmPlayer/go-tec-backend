@@ -2,7 +2,7 @@ package middlewares
 
 import (
 	"net/http"
-
+	"fmt"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,5 +16,6 @@ func AdminMiddleware() gin.HandlerFunc {
 		}
 
 		c.Next()
+		fmt.Println("JWTAuthMiddleware running, token role =", role)
 	}
 }
