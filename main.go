@@ -19,6 +19,7 @@ func main() {
 		log.Fatal("Error loading .env file")
 		return
 	}
+	
 
 	useDebugMode, exists := os.LookupEnv("DEBUG_MODE")
 

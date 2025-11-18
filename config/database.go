@@ -53,9 +53,16 @@ func ConnectDB() {
 		return
 	}
 
-	DB, err = sql.Open("mysql", username+":"+password+"@tcp("+host+":"+port+")/"+database)
+	DB, err = sql.Open(
+		"mysql",
+		username+":"+password+
+			"@tcp("+host+":"+port+")/"+database+
+			"?parseTime=true&loc=Asia%2FJakarta",
+	)
 
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	
 }

@@ -4,7 +4,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"go-tec-backend/controllers"
 	"go-tec-backend/middlewares"
-	"fmt"
 )
 
 func SetupRoutes(r *gin.Engine) {
@@ -20,6 +19,12 @@ func SetupRoutes(r *gin.Engine) {
 	})
 
 	r.GET("/ws", controllers.ExamWebsocket)
+	r.GET("/api/exam/quota", controllers.GetExamQuota)
+	r.POST("/api/exam/register", controllers.RegisterExam)
+	
+	r.Static("/uploads", "./uploads")
+
+	
 
 	// Main bulk of API routes - requires JWT authentication
 	api := r.Group("/api")
@@ -40,6 +45,9 @@ func SetupRoutes(r *gin.Engine) {
 	student.GET("/answers/:id", controllers.GetExamAnswers)
 	student.POST("/logs", controllers.LogActivity)
 	student.POST("/exam/submit/:nim/:idUjian", controllers.SubmitExam)
+	student.GET("/offline", controllers.GetOfflineExamsForStudent) // ✅ baru
+	student.GET("/offline/available", controllers.GetAvailableOfflineExams)
+	student.GET("/online/available", controllers.GetAvailableOnlineExams)
 
 	admin := api.Group("/admin")
 	admin.Use(middlewares.AdminMiddleware())
@@ -67,16 +75,20 @@ func SetupRoutes(r *gin.Engine) {
 	admin.PUT("/exams/:id", controllers.UpdateExam)
 	admin.DELETE("/exams/:id", controllers.DeleteExam)
 
-	admin.GET("/scores/:examID", controllers.GetScoresByExam)
+	admin.GET("/registrations", controllers.GetAllRegistrations)
+	admin.POST("/registrations/verify", controllers.VerifyRegistration)
+	admin.POST("/exams/offline", controllers.CreateOfflineExam)
+	admin.GET("/exams/offline", controllers.GetOfflineExams)
+	admin.GET("/exams/offline/:id", controllers.GetOfflineExamByID)
+	admin.PUT("/exams/offline/:id", controllers.UpdateOfflineExam)
+	admin.DELETE("/exams/offline/:id", controllers.DeleteOfflineExam)
+	admin.GET("/exams/:id/students", controllers.GetExamStudents)
+	
+
+	//admin.GET("/scores/:examID", controllers.GetScoresByExam)
 	admin.GET("/logs/:examID", controllers.GetLogsByExam)
 	admin.GET("/logs/:examID/:nim", controllers.GetLogsByStudent)
 	admin.DELETE("/logs/:examID/:nim", controllers.DeleteLogsByStudent)
-	admin.GET("/scores/:examID/", controllers.GetScoresByExam)
-
-	
-	for _, ri := range r.Routes() {
-		fmt.Println("Registered route:", ri.Method, ri.Path)
-	}
-	
+	admin.GET("/scores/:examID", controllers.GetScoresByExam)
 	
 }

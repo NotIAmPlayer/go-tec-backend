@@ -32,6 +32,7 @@ func RegisterUser(c *gin.Context) {
 	}
 
 	// validate email format
+	// validate email format
 	emailSubstring := strings.Split(u.Email, "@")
 
 	if len(emailSubstring) != 2 || emailSubstring[0] == "" || emailSubstring[1] == "" {
@@ -41,12 +42,15 @@ func RegisterUser(c *gin.Context) {
 		return
 	}
 
-	if emailSubstring[1] != "student.ukdc.ac.id" {
+	// valid domains
+	domain := emailSubstring[1]
+	if domain != "ukdc.ac.id" && domain != "student.ukdc.ac.id" {
 		c.JSON(400, gin.H{
-			"message": "400 - Email must be from student.ukdc.ac.id domain",
+			"message": "400 - Email must be from ukdc.ac.id or student.ukdc.ac.id domain",
 		})
 		return
 	}
+
 
 	// check if user already exists (via NIM or email)
 	query := "SELECT nim, namaMhs, email, password FROM mahasiswa WHERE nim = ? OR email = ?"

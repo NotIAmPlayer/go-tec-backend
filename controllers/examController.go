@@ -187,6 +187,7 @@ func GetExam(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, e)
+	log.Printf("DEBUG GetExam response: %+v\n", e)
 }
 
 func CreateExam(c *gin.Context) {
@@ -743,5 +744,6 @@ func GetExamScore(c *gin.Context) {
 		return
 	} else {
 		c.JSON(http.StatusOK, scores)
+		log.Printf("DEBUG GetExamScore response: %+v\n", scores)
 	}
 }
