@@ -42,15 +42,16 @@ func RegisterUser(c *gin.Context) {
 		return
 	}
 
-	// valid domains
-	domain := emailSubstring[1]
-	if domain != "ukdc.ac.id" && domain != "student.ukdc.ac.id" {
-		c.JSON(400, gin.H{
-			"message": "400 - Email must be from ukdc.ac.id or student.ukdc.ac.id domain",
-		})
-		return
-	}
-
+	// valid domains (no longer needed)
+	/*
+		domain := emailSubstring[1]
+		if domain != "ukdc.ac.id" && domain != "student.ukdc.ac.id" {
+			c.JSON(400, gin.H{
+				"message": "400 - Email must be from ukdc.ac.id or student.ukdc.ac.id domain",
+			})
+			return
+		}
+	*/
 
 	// check if user already exists (via NIM or email)
 	query := "SELECT nim, namaMhs, email, password FROM mahasiswa WHERE nim = ? OR email = ?"

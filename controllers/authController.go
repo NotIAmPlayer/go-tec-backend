@@ -5,6 +5,9 @@ import (
 	"go-tec-backend/config"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -30,25 +33,152 @@ func comparePasswordHash(password string, hash string) bool {
 }
 
 func Login(c *gin.Context) {
-	var request LoginRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "400 - Invalid request format"})
-		return
-	}
-
-	token, err := verifyLogin(request.Username, request.Password)
+	accessTokenLifespan, err := strconv.Atoi(os.Getenv("ACCESS_TOKEN_HOUR_LIFESPAN"))
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "400 - Invalid username or password"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
 		return
 	}
 
+	refreshTokenLifespan, err := strconv.Atoi(os.Getenv("REFRESH_TOKEN_DAYS_LIFESPAN"))
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	domain := os.Getenv("FRONTEND_URL_JWT")
+
+	var request LoginRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid request format",
+		})
+		return
+	}
+
+	accessToken, refreshToken, err := verifyLogin(request.Username, request.Password)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "400 - Invalid username or password",
+		})
+		return
+	}
+
+	var secure bool
+	if gin.Mode() == gin.ReleaseMode {
+		secure = true
+	} else {
+		secure = false
+	}
+
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie(
+		"jwt-access",
+		accessToken,
+		accessTokenLifespan*int(time.Hour),
+		"/",
+		domain,
+		secure,
+		true,
+	)
+
+	c.SetCookie(
+		"jwt-refresh",
+		refreshToken,
+		refreshTokenLifespan*int(time.Hour)*24,
+		"/",
+		domain,
+		secure,
+		true,
+	)
+
 	c.JSON(http.StatusOK, gin.H{
-		"token": token,
+		"message": "200 - Login successful",
+		"user":    request.Username,
 	})
 }
 
-func verifyLogin(username, password string) (string, error) {
+func Refresh(c *gin.Context) {
+	refreshToken, err := c.Cookie("jwt-refresh")
+
+	if err != nil || refreshToken == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "401 - No refresh token",
+		})
+		return
+	}
+
+	tokenClaims, err := config.ParseToken(refreshToken, []byte(os.Getenv("REFRESH_TOKEN_SECRET")))
+
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, "401 - Missing or invalid refresh token")
+		return
+	}
+
+	userId := (*tokenClaims)["id"].(string)
+	userEmail := (*tokenClaims)["email"].(string)
+	userRole := (*tokenClaims)["role"].(string)
+
+	newAccessToken, err := config.GenerateJWTAccessToken(userId, userEmail, userRole)
+
+	// prepare assigning a new access token cookie
+	accessTokenLifespan, err := strconv.Atoi(os.Getenv("ACCESS_TOKEN_HOUR_LIFESPAN"))
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	domain := os.Getenv("FRONTEND_URL_JWT")
+
+	var secure bool
+	if gin.Mode() == gin.ReleaseMode {
+		secure = true
+	} else {
+		secure = false
+	}
+
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie(
+		"jwt-access",
+		newAccessToken,
+		accessTokenLifespan*int(time.Hour),
+		"/",
+		domain,
+		secure,
+		true,
+	)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Access token refreshed",
+	})
+}
+
+func Logout(c *gin.Context) {
+	var secure bool
+	if gin.Mode() == gin.ReleaseMode {
+		secure = true
+	} else {
+		secure = false
+	}
+
+	c.SetCookie("jwt-access", "", -1, "/", "", secure, true)
+	c.SetCookie("jwt-refresh", "", -1, "/", "", secure, true)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "200 - Logout successful",
+	})
+}
+
+func verifyLogin(username, password string) (string, string, error) {
 	query := `
 		SELECT nim AS id, namaMhs AS nama, email, password, 'mahasiswa' AS role FROM mahasiswa WHERE nim = ? OR email = ?
 		UNION
@@ -65,21 +195,27 @@ func verifyLogin(username, password string) (string, error) {
 		} else {
 			log.Printf("Error scanning user data: %v", err)
 		}
-		return "", err
+		return "", "", err
 	}
 
 	if !comparePasswordHash(password, user.Password) {
 		log.Println("Password does not match")
-		return "", bcrypt.ErrMismatchedHashAndPassword
+		return "", "", bcrypt.ErrMismatchedHashAndPassword
 	}
 
-	token, err := config.GenerateJWT(user.ID, user.Email, user.Role)
+	accessToken, err := config.GenerateJWTAccessToken(user.ID, user.Email, user.Role)
 
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return token, nil
+	refreshToken, err := config.GenerateJWTRefreshToken(user.ID, user.Email, user.Role)
+
+	if err != nil {
+		return "", "", err
+	}
+
+	return accessToken, refreshToken, nil
 }
 
 func GetMe(c *gin.Context) {
@@ -89,21 +225,21 @@ func GetMe(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "401 - Unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "401 - Unauthorized"})
 		return
 	}
 
 	email, exists := c.Get("email")
 
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "401 - Unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "401 - Unauthorized"})
 		return
 	}
 
 	role, exists := c.Get("role")
 
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "401 - Unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "401 - Unauthorized"})
 		return
 	}
 
@@ -114,7 +250,7 @@ func GetMe(c *gin.Context) {
 	} else if role == "admin" {
 		query = "SELECT idAdmin AS id, namaAdmin AS nama, email, 'admin' AS role FROM admin WHERE idAdmin = ? OR email = ?"
 	} else {
-		c.JSON(http.StatusForbidden, gin.H{"error": "403 - Invalid role"})
+		c.JSON(http.StatusForbidden, gin.H{"message": "403 - Invalid role"})
 		return
 	}
 

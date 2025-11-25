@@ -29,6 +29,7 @@ type StudentQuestion struct {
 	ChoiceD      string `json:"choice_d"`
 	Answer       string `json:"answer"`
 	AudioPath    string `json:"audio_path"`
+	BatchID      int    `json:"batch_id"`
 	BatchType    string `json:"batch_type"`
 	BatchText    string `json:"batch_text"`
 }
@@ -155,7 +156,6 @@ func GetOfflineExamsForStudent(c *gin.Context) {
 	c.JSON(http.StatusOK, exams)
 }
 
-
 func GetAvailableOnlineExams(c *gin.Context) {
 	db := config.DB
 
@@ -195,15 +195,14 @@ func GetAvailableOnlineExams(c *gin.Context) {
 			exams = append(exams, Exam{
 				IDUjian:       idUjian,
 				NamaUjian:     namaUjian,
-				JadwalMulai:   jadwalMulai.Format("2006-01-02 15:04:05"),
-				JadwalSelesai: jadwalSelesai.Format("2006-01-02 15:04:05"),
+				JadwalMulai:   jadwalMulai.Format(time.DateTime),
+				JadwalSelesai: jadwalSelesai.Format(time.DateTime),
 			})
 		}
 	}
 
 	c.JSON(http.StatusOK, exams)
 }
-
 
 func GetAvailableOfflineExams(c *gin.Context) {
 	type AvailableExam struct {
@@ -262,7 +261,6 @@ func GetAvailableOfflineExams(c *gin.Context) {
 	c.JSON(http.StatusOK, exams)
 }
 
-
 func GetExamQuestions(c *gin.Context) {
 	/*
 		Uses the given exam ID to give out all of the questions.
@@ -280,7 +278,7 @@ func GetExamQuestions(c *gin.Context) {
 	questions := []StudentQuestion{}
 
 	query := `
-		SELECT s.idSoal, b.tipeBatch, b.textBatch, s.isiSoal, s.pilihanA, s.pilihanB, s.pilihanC, s.pilihanD, b.audio
+		SELECT s.idSoal, b.idBatch, b.tipeBatch, b.textBatch, s.isiSoal, s.pilihanA, s.pilihanB, s.pilihanC, s.pilihanD, b.audio
 		FROM batch_ujian u JOIN batch_soal b ON b.idBatch = u.idBatch JOIN soal s ON b.idBatch = s.idBatch
 		WHERE u.idUjian = ?
 		ORDER BY b.tipeBatch, s.idSoal
@@ -302,7 +300,7 @@ func GetExamQuestions(c *gin.Context) {
 		var q StudentQuestion
 
 		var audio sql.NullString
-		if err := rows.Scan(&q.QuestionID, &q.BatchType, &q.BatchText, &q.QuestionText, &q.ChoiceA, &q.ChoiceB, &q.ChoiceC, &q.ChoiceD, &audio); err != nil {
+		if err := rows.Scan(&q.QuestionID, &q.BatchID, &q.BatchType, &q.BatchText, &q.QuestionText, &q.ChoiceA, &q.ChoiceB, &q.ChoiceC, &q.ChoiceD, &audio); err != nil {
 			log.Printf("Get exam questions (student) error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "500 - Internal Server Error",
@@ -609,7 +607,7 @@ func EndExamStudent(c *gin.Context) {
 			return
 		}
 	}
-	
+
 	currentDatetime := time.Now().In(loc)
 	duration := currentDatetime.Sub(target)
 

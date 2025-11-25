@@ -1,11 +1,12 @@
 package controllers
 
 import (
-	"net/http"
 	"database/sql"
-	"log"
-	"time"
 	"go-tec-backend/config" // ubah sesuai nama module kamu
+	"log"
+	"net/http"
+	"time"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,7 +23,7 @@ func GetAllRegistrations(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT id, nim, exam_type, payment_proof, status, created_at
 		FROM pendaftaran_ujian
-		ORDER BY created_at DESC
+		ORDER BY created_at, id DESC
 	`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -137,7 +138,6 @@ func VerifyRegistration(c *gin.Context) {
 				LIMIT 1
 			`).Scan(&onlineExamID)
 
-
 			if err != nil {
 				log.Printf("DEBUG Tidak menemukan ujian online: %v\n", err)
 				c.JSON(http.StatusConflict, gin.H{"message": "Kuota offline penuh dan tidak ada ujian online tersedia"})
@@ -214,4 +214,3 @@ func VerifyRegistration(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Status pendaftaran berhasil diperbarui"})
 }
-

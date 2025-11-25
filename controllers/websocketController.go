@@ -75,7 +75,7 @@ func ExamWebsocket(c *gin.Context) {
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 				}
-				return []byte(os.Getenv("TOKEN_SECRET")), nil
+				return []byte(os.Getenv("ACCESS_TOKEN_SECRET")), nil
 			})
 
 			if err != nil {

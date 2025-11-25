@@ -607,7 +607,7 @@ func DeleteExam(c *gin.Context) {
 			(SELECT COUNT(*) FROM ujian_ikut WHERE idUjian = ?) AS student_count
 	`
 
-	var startDatetime string
+	var startDatetime time.Time
 	var batchCount, studentCount int
 
 	row := config.DB.QueryRow(query, id, id, id)
@@ -621,7 +621,7 @@ func DeleteExam(c *gin.Context) {
 	}
 
 	// check if datetime is at least 3 days away
-	target, err := time.Parse(time.DateTime, startDatetime)
+	target, err := time.Parse(time.DateTime, startDatetime.Format(time.DateTime))
 	if err != nil {
 		log.Printf("Parse start datetime error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -646,7 +646,7 @@ func DeleteExam(c *gin.Context) {
 
 	// remove questions and students if the count is above 0
 	if batchCount > 0 {
-		query2 := "DELETE FROM soal_ujian WHERE idUjian = ?"
+		query2 := "DELETE FROM batch_ujian WHERE idUjian = ?"
 		_, err2 := config.DB.Exec(query2, id)
 
 		if err2 != nil {

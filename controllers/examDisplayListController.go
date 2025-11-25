@@ -1,32 +1,32 @@
 package controllers
 
 import (
-	"go-tec-backend/config"
 	"database/sql"
+	"go-tec-backend/config"
+	"log"
 	"net/http"
 	"time"
-	"log"
+
 	"github.com/gin-gonic/gin"
 )
 
 type OfflineExamResponse struct {
-	ExamID         string `json:"exam_id"`          // ubah dari int → string
-	ExamTitle      string `json:"exam_title"`
+	ExamID         string  `json:"exam_id"` // ubah dari int → string
+	ExamTitle      string  `json:"exam_title"`
 	StartDatetime  *string `json:"start_datetime"`
 	EndDatetime    *string `json:"end_datetime"`
-	RoomName       string `json:"room_name"`
-	StudentCount   int    `json:"student_count"`
-	TotalQuota     int    `json:"total_quota"`
-	AvailableQuota int    `json:"available_quota"`
+	RoomName       string  `json:"room_name"`
+	StudentCount   int     `json:"student_count"`
+	TotalQuota     int     `json:"total_quota"`
+	AvailableQuota int     `json:"available_quota"`
 }
-
 
 // Helper untuk konversi waktu
 func convertToWIB(t sql.NullTime) *string {
 	if !t.Valid {
 		return nil
 	}
-	
+
 	loc, err := time.LoadLocation("Asia/Jakarta")
 	if err != nil {
 		log.Println("Error loading location Asia/Jakarta:", err)
@@ -34,7 +34,7 @@ func convertToWIB(t sql.NullTime) *string {
 		utcTime := t.Time.Format("2006-01-02 15:04:05")
 		return &utcTime
 	}
-	
+
 	wibTime := t.Time.In(loc).Format("2006-01-02 15:04:05")
 	return &wibTime
 }
