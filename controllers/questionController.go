@@ -316,11 +316,11 @@ func CreateQuestionBatch(c *gin.Context) {
 		// Save file to the uploads directory
 		dest := "uploads/" + file.Filename
 
-		// Limit file size to 10MB
-		if file.Size > 10*1024*1024 {
-			log.Printf("File size error: %s exceeds 10MB limit", file.Filename)
+		// Limit file size to 50MB
+		if file.Size > 50*1024*1024 {
+			log.Printf("File size error: %s exceeds 50MB limit", file.Filename)
 			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "400 - File size exceeds 10MB limit",
+				"message": "400 - File size exceeds 50MB limit",
 			})
 			return
 		}
@@ -493,11 +493,11 @@ func CreateQuestion(c *gin.Context) {
 			// Save file to the uploads directory
 			dest := "uploads/" + file.Filename
 
-			// Limit file size to 10MB
-			if file.Size > 10*1024*1024 {
-				log.Printf("File size error: %s exceeds 10MB limit", file.Filename)
+			// Limit file size to 50MB
+			if file.Size > 50*1024*1024 {
+				log.Printf("File size error: %s exceeds 50MB limit", file.Filename)
 				c.JSON(http.StatusBadRequest, gin.H{
-					"message": "400 - File size exceeds 10MB limit",
+					"message": "400 - File size exceeds 50MB limit",
 				})
 				return
 			}
@@ -609,10 +609,10 @@ func UpdateQuestionBatch(c *gin.Context) {
 		// Save file to the uploads directory
 		dest := "uploads/" + file.Filename
 
-		if file.Size > 10*1024*1024 {
-			log.Printf("File size error: %s exceeds 10MB limit", file.Filename)
+		if file.Size > 50*1024*1024 {
+			log.Printf("File size error: %s exceeds 50MB limit", file.Filename)
 			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "400 - File size exceeds 10MB limit",
+				"message": "400 - File size exceeds 50MB limit",
 			})
 			return
 		}
@@ -852,10 +852,10 @@ func UpdateQuestion(c *gin.Context) {
 			// Save file to the uploads directory
 			dest := "uploads/" + file.Filename
 
-			if file.Size > 10*1024*1024 {
-				log.Printf("File size error: %s exceeds 10MB limit", file.Filename)
+			if file.Size > 50*1024*1024 {
+				log.Printf("File size error: %s exceeds 50MB limit", file.Filename)
 				c.JSON(http.StatusBadRequest, gin.H{
-					"message": "400 - File size exceeds 10MB limit",
+					"message": "400 - File size exceeds 50MB limit",
 				})
 				return
 			}

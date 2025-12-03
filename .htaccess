@@ -1,0 +1,14 @@
+Options +FollowSymLinks -Indexes
+IndexIgnore *
+DirectoryIndex
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*)$ http://127.0.0.1:8080/$1 [P,L]
+</IfModule>
+
+<IfModule mod_proxy.c>
+  ProxyPreserveHost On
+  ProxyPass / http://127.0.0.1:8080/
+  ProxyPassReverse / http://127.0.0.1:8080/
+</IfModule>

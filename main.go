@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 	"go-tec-backend/config"
-	"go-tec-backend/middlewares"
 	"go-tec-backend/routes"
 	"log"
 	"os"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -46,7 +46,19 @@ func main() {
 	fmt.Println("current gin mode:" + gin.Mode())
 
 	// Set up CORS middleware
-	r.Use(middlewares.HandleCORS(frontend))
+	var origin string
+	if gin.Mode() == gin.ReleaseMode {
+		origin = frontend
+	} else {
+		origin = "http://localhost:5173"
+	}
+
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{origin},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		AllowCredentials: true,
+	}))
 
 	routes.SetupRoutes(r)
 

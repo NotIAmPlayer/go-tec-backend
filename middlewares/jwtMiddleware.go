@@ -3,28 +3,30 @@ package middlewares
 import (
 	"go-tec-backend/config"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 func JWTAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token, err := config.ValidateJWT(c)
+		cookieToken, err := c.Cookie("jwt-access")
+
+		if err != nil || cookieToken == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, "401 - Unauthorized")
+			return
+		}
+
+		tokenClaims, err := config.ParseToken(cookieToken, []byte(os.Getenv("ACCESS_TOKEN_SECRET")))
 
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, "401 - Missing or invalid token")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, "401 - Missing or invalid access token")
 			return
 		}
 
-		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			c.Set("user_id", claims["id"])
-			c.Set("email", claims["email"])
-			c.Set("role", claims["role"])
-			c.Next()
-		} else {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, "401 - Invalid token")
-			return
-		}
+		c.Set("user_id", (*tokenClaims)["id"])
+		c.Set("email", (*tokenClaims)["email"])
+		c.Set("role", (*tokenClaims)["role"])
+		c.Next()
 	}
 }

@@ -340,7 +340,6 @@ func UpdateSelfPassword(c *gin.Context) {
 	}
 
 	var query string
-
 	if role == "admin" {
 		query = "SELECT password FROM admin WHERE idAdmin = ?"
 	} else if role == "mahasiswa" {
@@ -366,7 +365,7 @@ func UpdateSelfPassword(c *gin.Context) {
 	}
 
 	if !comparePasswordHash(d.OldPassword, user.Password) {
-		c.JSON(http.StatusNotFound, gin.H{
+		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "400 - Old password is incorrect",
 		})
 		return
@@ -383,7 +382,6 @@ func UpdateSelfPassword(c *gin.Context) {
 	}
 
 	var query2 string
-
 	if role == "admin" {
 		query2 = "UPDATE admin SET password = ? WHERE idAdmin = ?"
 	} else {
