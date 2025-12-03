@@ -77,8 +77,8 @@ func GetScoresByExam(c *gin.Context) {
 	rows, err := config.DB.Query(query, examID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":  "query failed",
-			"detail": err.Error(),
+			"error": "query failed",
+			//"detail": err.Error(),
 		})
 		return
 	}

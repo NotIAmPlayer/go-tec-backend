@@ -5,18 +5,20 @@ import (
 	"log"
 	"os"
 
-	_"github.com/go-sql-driver/mysql"
-	"github.com/joho/godotenv"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 var DB *sql.DB
 
 func ConnectDB() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-		return
-	}
+	// Godotenv has been called at this point in time
+	/*
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file")
+			return
+		}
+	*/
 
 	username, exists := os.LookupEnv("DB_USERNAME")
 
@@ -53,6 +55,7 @@ func ConnectDB() {
 		return
 	}
 
+	var err error
 	DB, err = sql.Open(
 		"mysql",
 		username+":"+password+
@@ -64,5 +67,4 @@ func ConnectDB() {
 		log.Fatal(err)
 	}
 
-	
 }

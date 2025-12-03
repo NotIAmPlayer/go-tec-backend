@@ -9,17 +9,21 @@ import (
 
 func SetupRoutes(r *gin.Engine) {
 	// Public routes - no authentication required
+	r.GET("/ping", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "pong",
+		})
+	})
+
 	r.POST("/register", controllers.RegisterUser)
 	r.POST("/login", controllers.Login)
 	r.POST("/refresh", controllers.Refresh)
 	r.POST("/logout", controllers.Logout)
 
 	r.GET("/audio/:filename", controllers.GetAudioFile)
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
-	})
+
+	r.POST("/forgot", controllers.ForgotPassword)
+	r.POST("/forgot/reset", controllers.ResetPassword)
 
 	r.GET("/ws", controllers.ExamWebsocket)
 	r.GET("/api/exam/quota", controllers.GetExamQuota)
