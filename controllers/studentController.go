@@ -157,14 +157,28 @@ func GetOfflineExamsForStudent(c *gin.Context) {
 }
 
 func GetAvailableOnlineExams(c *gin.Context) {
-	db := config.DB
+	userID, exists := c.Get("user_id")
 
-	rows, err := db.Query(`
-		SELECT idUjian, namaUjian, jadwalMulai, jadwalSelesai
-		FROM ujian
-		WHERE jadwalSelesai >= NOW()  -- ✅ hanya ujian yang belum berakhir
-		ORDER BY jadwalMulai ASC
-	`)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "401 - Unauthorized"})
+		return
+	}
+
+	query := `
+		SELECT u.idUjian, u.namaUjian, u.jadwalMulai, u.jadwalSelesai
+		FROM ujian u
+		WHERE
+			u.jadwalSelesai >= NOW() 		-- ujian yang belum lewat
+			AND NOT EXISTS (				-- ujian yang belum mendaftar
+				SELECT 1
+				FROM pendaftaran_ujian p
+				WHERE p.exam_id = u.idUjian
+					AND p.nim = ?
+			)
+		ORDER BY u.jadwalMulai ASC
+	`
+
+	rows, err := config.DB.Query(query, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Gagal ambil data ujian online",
@@ -205,6 +219,13 @@ func GetAvailableOnlineExams(c *gin.Context) {
 }
 
 func GetAvailableOfflineExams(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "401 - Unauthorized"})
+		return
+	}
+
 	type AvailableExam struct {
 		ExamID         string `json:"exam_id"`
 		ExamTitle      string `json:"exam_title"`
@@ -229,10 +250,16 @@ func GetAvailableOfflineExams(c *gin.Context) {
 		WHERE 
 			eo.end_datetime >= NOW()        -- ✅ hanya ujian yang belum lewat
 			AND IFNULL(k.available, 0) > 0
+			AND NOT EXISTS (				-- ujian yang belum mendaftar
+				SELECT 1
+				FROM pendaftaran_ujian p
+				WHERE p.exam_id = eo.id
+					AND p.nim = ?
+			)
 		ORDER BY eo.start_datetime ASC
 	`
 
-	rows, err := config.DB.Query(query)
+	rows, err := config.DB.Query(query, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":  "Gagal mengambil daftar ujian offline",

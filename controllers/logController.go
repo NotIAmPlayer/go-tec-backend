@@ -109,11 +109,18 @@ func GetScoresByExam(c *gin.Context) {
 func GetLogsByExam(c *gin.Context) {
 	examID := c.Param("examID")
 	fmt.Println("Handler GetScoresByExam called with examID =", c.Param("examID"))
+	// good enough query to have less frontend workload
 	query := `
-        SELECT waktu, nim, tipeAktivitas, aktivitas
-        FROM log_aktivitas
-        WHERE idUjian = ?
-        ORDER BY waktu DESC
+        SELECT l.waktu, l.nim, l.tipeAktivitas, l.aktivitas
+		FROM log_aktivitas l
+		INNER JOIN (
+			SELECT idLog, idUjian, nim, MAX(waktu) waktu, tipeAktivitas, aktivitas
+			FROM log_aktivitas
+			WHERE idUjian = ?
+			GROUP BY nim
+		) AS recent
+		ON l.nim = recent.nim AND l.waktu = recent.waktu AND l.idUjian = recent.idUjian
+		ORDER BY l.nim, l.idLog DESC;
     `
 	rows, err := config.DB.Query(query, examID)
 	if err != nil {

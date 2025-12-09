@@ -32,7 +32,6 @@ func RegisterUser(c *gin.Context) {
 	}
 
 	// validate email format
-	// validate email format
 	emailSubstring := strings.Split(u.Email, "@")
 
 	if len(emailSubstring) != 2 || emailSubstring[0] == "" || emailSubstring[1] == "" {
