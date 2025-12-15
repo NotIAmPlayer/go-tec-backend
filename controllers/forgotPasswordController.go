@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -97,9 +98,13 @@ func ForgotPassword(c *gin.Context) {
 		return
 	}
 
+	// process raw string in frontend as a slice, then grab only the first item
+	origin := strings.Split(frontend, ",")[0]
+	origin = strings.TrimSpace(origin)
+
 	resetURL := fmt.Sprintf(
 		"%s/reset-password?token=%s&nim=%s",
-		frontend, token, user.ID,
+		origin, token, user.ID,
 	)
 
 	err = config.SendResetEmail(user.Email, resetURL, expiryMinutes)
