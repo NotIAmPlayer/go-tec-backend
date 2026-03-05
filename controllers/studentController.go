@@ -394,7 +394,9 @@ func AnswerExamQuestions(c *gin.Context) {
 	if err := row.Scan(&tempAnswer.Nim, &tempAnswer.QuestionID, &tempAnswer.ExamID, &tempAnswer.Answer); err != nil {
 		if err == sql.ErrNoRows {
 			// uses insert into instead of update
-			query2 = "INSERT INTO soal_jawaban (jawaban, nim, idSoal, idUjian, tipeBatch) VALUES (?, ?, ?, ?, ?)"
+			query2 = `
+				INSERT INTO soal_jawaban (jawaban, nim, idSoal, idUjian, tipeBatch)
+				VALUES (?, ?, ?, ?, ?)`
 		} else {
 			// something went wrong
 			log.Printf("Get student answer error: %v", err)
@@ -414,6 +416,8 @@ func AnswerExamQuestions(c *gin.Context) {
 			query2 = "UPDATE soal_jawaban SET jawaban = ?, tipeBatch = ? WHERE nim = ? AND idSoal = ? AND idUjian = ?"
 		}
 	}
+
+	fmt.Println(query2)
 
 	if strings.HasPrefix(query2, "DELETE") {
 		_, err = config.DB.Exec(query2, a.Nim, a.QuestionID, a.ExamID)

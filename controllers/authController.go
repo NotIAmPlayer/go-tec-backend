@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"database/sql"
+	"fmt"
 	"go-tec-backend/config"
 	"log"
 	"net/http"
@@ -91,7 +92,7 @@ func Login(c *gin.Context) {
 	c.SetCookie(
 		"jwt-refresh",
 		refreshToken,
-		refreshTokenLifespan*int(time.Hour)*24,
+		refreshTokenLifespan*(int(time.Hour)*24),
 		"/",
 		domain,
 		secure,
@@ -117,6 +118,7 @@ func Refresh(c *gin.Context) {
 	tokenClaims, err := config.ParseToken(refreshToken, []byte(os.Getenv("REFRESH_TOKEN_SECRET")))
 
 	if err != nil {
+		fmt.Println(err)
 		c.AbortWithStatusJSON(http.StatusUnauthorized, "401 - Missing or invalid refresh token")
 		return
 	}
@@ -245,11 +247,18 @@ func GetMe(c *gin.Context) {
 
 	var query string
 
-	if role == "mahasiswa" {
-		query = "SELECT nim AS id, namaMhs AS nama, email, 'mahasiswa' AS role FROM mahasiswa WHERE nim = ? OR email = ?"
-	} else if role == "admin" {
-		query = "SELECT idAdmin AS id, namaAdmin AS nama, email, 'admin' AS role FROM admin WHERE idAdmin = ? OR email = ?"
-	} else {
+	switch role {
+	case "mahasiswa":
+		query = `
+			SELECT nim AS id, namaMhs AS nama, email, 'mahasiswa' AS role
+			FROM mahasiswa WHERE nim = ? OR email = ?
+		`
+	case "admin":
+		query = `
+			SELECT idAdmin AS id, namaAdmin AS nama, email, 'admin' AS role
+			FROM admin WHERE idAdmin = ? OR email = ?
+		`
+	default:
 		c.JSON(http.StatusForbidden, gin.H{"message": "403 - Invalid role"})
 		return
 	}

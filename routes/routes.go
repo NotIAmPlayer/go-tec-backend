@@ -38,9 +38,7 @@ func SetupRoutes(r *gin.Engine) {
 	// Main bulk of API routes - requires JWT authentication
 	api := r.Group("/api")
 	api.Use(middlewares.JWTAuthMiddleware()) // Apply JWT middleware to all routes in this group
-
 	api.GET("/me", controllers.GetMe)
-
 	api.PUT("/self/password", controllers.UpdateSelfPassword)
 
 	student := api.Group("/student")

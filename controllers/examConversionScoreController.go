@@ -88,7 +88,7 @@ func SubmitExam(c *gin.Context) {
 
 	for _, section := range sections {
 		query := `
-			SELECT COUNT(*)
+			SELECT COUNT(DISTINCT sj.idSoal) -- in case of duplicate answers
 			FROM soal_jawaban sj
 			JOIN soal s ON sj.idSoal = s.idSoal
 			WHERE sj.nim = ? AND sj.idUjian = ? 
@@ -100,6 +100,14 @@ func SubmitExam(c *gin.Context) {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
+		}
+
+		/*
+			chances are if someone got more correct answers than intended, it's probably
+			from multiple rows of the same answer
+		*/
+		if correct > (len(scoreConversion[section]) - 1) {
+			correct = len(scoreConversion[section]) - 1
 		}
 
 		converted := ConvertScore(section, correct)

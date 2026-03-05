@@ -40,7 +40,7 @@ func GenerateJWTRefreshToken(id, email, role string) (string, error) {
 		"id":    id,
 		"email": email,
 		"role":  role,
-		"exp":   time.Now().Add(time.Duration(refreshTokenLifespan) * time.Hour * 24),
+		"exp":   time.Now().Add(time.Duration(refreshTokenLifespan) * time.Hour * 24).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
