@@ -417,14 +417,17 @@ func AnswerExamQuestions(c *gin.Context) {
 		}
 	}
 
-	fmt.Println(query2)
+	var queryType string
 
 	if strings.HasPrefix(query2, "DELETE") {
 		_, err = config.DB.Exec(query2, a.Nim, a.QuestionID, a.ExamID)
+		queryType = "delete"
 	} else if strings.HasPrefix(query2, "INSERT") {
 		_, err = config.DB.Exec(query2, a.Answer, a.Nim, a.QuestionID, a.ExamID, a.TipeBatch)
+		queryType = "insert"
 	} else { // UPDATE
 		_, err = config.DB.Exec(query2, a.Answer, a.TipeBatch, a.Nim, a.QuestionID, a.ExamID)
+		queryType = "update"
 	}
 
 	if err != nil {
@@ -435,8 +438,51 @@ func AnswerExamQuestions(c *gin.Context) {
 		return
 	}
 
+	var err2 error
+
+	switch queryType {
+	case "delete":
+		logQuery := `
+			INSERT INTO log_aktivitas (nim, idUjian, idSoal, tipeAktivitas, aktivitas, waktu)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`
+
+		activityDesc := fmt.Sprintf("Menghapus jawaban pada soal ID %d", a.QuestionID)
+
+		_, err2 = config.DB.Exec(logQuery, a.Nim, a.ExamID, a.QuestionID, "answer", activityDesc)
+	case "insert":
+		logQuery := `
+			INSERT INTO log_aktivitas (nim, idUjian, idSoal, tipeAktivitas, aktivitas, waktu)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`
+
+		activityDesc := fmt.Sprintf("Menjawab soal ID %d dengan pilihan %s", a.QuestionID, a.Answer)
+
+		_, err2 = config.DB.Exec(logQuery, a.Nim, a.ExamID, a.QuestionID, "answer", activityDesc)
+	default:
+		logQuery := `
+			INSERT INTO log_aktivitas (nim, idUjian, idSoal, tipeAktivitas, aktivitas, waktu)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`
+
+		activityDesc := fmt.Sprintf("Mengubah jawaban soal ID %d dengan pilihan %s", a.QuestionID, a.Answer)
+
+		_, err2 = config.DB.Exec(logQuery, a.Nim, a.ExamID, a.QuestionID, "answer", activityDesc)
+	}
+
+	if err2 != nil {
+		// unable to log stuff (basically)
+		fmt.Printf("Logging activity error: %v", err2)
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "200 - Question answered successfully",
+			"warning": "Unable to log activity",
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"message": "200 - Exam updated successfully",
+		"message": "200 - Question answered successfully",
 	})
 }
 
@@ -577,6 +623,25 @@ func StartExamStudent(c *gin.Context) {
 		return
 	}
 
+	logQuery := `
+		INSERT INTO log_aktivitas (nim, idUjian, idSoal, tipeAktivitas, aktivitas, waktu)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`
+
+	activityDesc := fmt.Sprintf("Mulai ujian ID %d", a.ExamID)
+	questionID := sql.NullInt64{Int64: 0, Valid: false}
+
+	_, err2 := config.DB.Exec(logQuery, a.Nim, a.ExamID, questionID, "finish", activityDesc)
+
+	if err2 != nil {
+		log.Printf("Logging activity error: %v", err)
+		c.JSON(http.StatusOK, gin.H{
+			"message": "200 - Exam updated successfully",
+			"warning": "Unable to log activity",
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "200 - Exam updated successfully",
 	})
@@ -653,9 +718,28 @@ func EndExamStudent(c *gin.Context) {
 	_, err = config.DB.Exec(query2, currentDatetime.Format(time.DateTime), "selesai", a.Nim, a.ExamID)
 
 	if err != nil {
-		log.Printf("Starting exam error: %v", err)
+		log.Printf("Ending exam error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "500 - Internal server error",
+		})
+		return
+	}
+
+	logQuery := `
+		INSERT INTO log_aktivitas (nim, idUjian, idSoal, tipeAktivitas, aktivitas, waktu)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`
+
+	activityDesc := fmt.Sprintf("Selesai ujian ID %d", a.ExamID)
+	questionID := sql.NullInt64{Int64: 0, Valid: false}
+
+	_, err2 := config.DB.Exec(logQuery, a.Nim, a.ExamID, questionID, "finish", activityDesc)
+
+	if err2 != nil {
+		log.Printf("Logging activity error: %v", err)
+		c.JSON(http.StatusOK, gin.H{
+			"message": "200 - Exam updated successfully",
+			"warning": "Unable to log activity",
 		})
 		return
 	}
@@ -663,5 +747,4 @@ func EndExamStudent(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "200 - Exam updated successfully",
 	})
-
 }
