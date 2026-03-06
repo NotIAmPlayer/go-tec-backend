@@ -395,8 +395,9 @@ func AnswerExamQuestions(c *gin.Context) {
 		if err == sql.ErrNoRows {
 			// uses insert into instead of update
 			query2 = `
-				INSERT INTO soal_jawaban (jawaban, nim, idSoal, idUjian, tipeBatch)
-				VALUES (?, ?, ?, ?, ?)`
+				INSERT INTO soal_jawaban (nim, idSoal, idUjian, tipeBatch, jawaban)
+				VALUES (?, ?, ?, ?, ?)
+			`
 		} else {
 			// something went wrong
 			log.Printf("Get student answer error: %v", err)
@@ -413,25 +414,28 @@ func AnswerExamQuestions(c *gin.Context) {
 			// uses delete from instead of update
 			query2 = "DELETE FROM soal_jawaban WHERE nim = ? AND idSoal = ? AND idUjian = ?"
 		} else {
-			query2 = "UPDATE soal_jawaban SET jawaban = ?, tipeBatch = ? WHERE nim = ? AND idSoal = ? AND idUjian = ?"
+			query2 = "UPDATE soal_jawaban SET jawaban = ? WHERE nim = ? AND idSoal = ? AND idUjian = ? AND tipeBatch = ?"
 		}
 	}
 
+	query2_trimmed := strings.Trim(query2, " ")
+
 	var queryType string
 
-	if strings.HasPrefix(query2, "DELETE") {
+	if strings.HasPrefix(query2_trimmed, "DELETE") {
 		_, err = config.DB.Exec(query2, a.Nim, a.QuestionID, a.ExamID)
 		queryType = "delete"
-	} else if strings.HasPrefix(query2, "INSERT") {
+	} else if strings.HasPrefix(query2_trimmed, "UPDATE") {
 		_, err = config.DB.Exec(query2, a.Answer, a.Nim, a.QuestionID, a.ExamID, a.TipeBatch)
-		queryType = "insert"
-	} else { // UPDATE
-		_, err = config.DB.Exec(query2, a.Answer, a.TipeBatch, a.Nim, a.QuestionID, a.ExamID)
 		queryType = "update"
+	} else { // INSERT
+		_, err = config.DB.Exec(query2, a.Nim, a.QuestionID, a.ExamID, a.TipeBatch, a.Answer)
+		queryType = "insert"
 	}
 
 	if err != nil {
 		log.Printf("Answer question error: %v", err)
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "500 - Internal server error",
 		})
@@ -439,6 +443,8 @@ func AnswerExamQuestions(c *gin.Context) {
 	}
 
 	var err2 error
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	now := time.Now().In(loc)
 
 	switch queryType {
 	case "delete":
@@ -449,7 +455,7 @@ func AnswerExamQuestions(c *gin.Context) {
 
 		activityDesc := fmt.Sprintf("Menghapus jawaban pada soal ID %d", a.QuestionID)
 
-		_, err2 = config.DB.Exec(logQuery, a.Nim, a.ExamID, a.QuestionID, "answer", activityDesc)
+		_, err2 = config.DB.Exec(logQuery, a.Nim, a.ExamID, a.QuestionID, "answer", activityDesc, now.In(loc))
 	case "insert":
 		logQuery := `
 			INSERT INTO log_aktivitas (nim, idUjian, idSoal, tipeAktivitas, aktivitas, waktu)
@@ -458,7 +464,7 @@ func AnswerExamQuestions(c *gin.Context) {
 
 		activityDesc := fmt.Sprintf("Menjawab soal ID %d dengan pilihan %s", a.QuestionID, a.Answer)
 
-		_, err2 = config.DB.Exec(logQuery, a.Nim, a.ExamID, a.QuestionID, "answer", activityDesc)
+		_, err2 = config.DB.Exec(logQuery, a.Nim, a.ExamID, a.QuestionID, "answer", activityDesc, now.In(loc))
 	default:
 		logQuery := `
 			INSERT INTO log_aktivitas (nim, idUjian, idSoal, tipeAktivitas, aktivitas, waktu)
@@ -467,7 +473,7 @@ func AnswerExamQuestions(c *gin.Context) {
 
 		activityDesc := fmt.Sprintf("Mengubah jawaban soal ID %d dengan pilihan %s", a.QuestionID, a.Answer)
 
-		_, err2 = config.DB.Exec(logQuery, a.Nim, a.ExamID, a.QuestionID, "answer", activityDesc)
+		_, err2 = config.DB.Exec(logQuery, a.Nim, a.ExamID, a.QuestionID, "answer", activityDesc, now.In(loc))
 	}
 
 	if err2 != nil {
@@ -599,7 +605,8 @@ func StartExamStudent(c *gin.Context) {
 		}
 	}
 
-	currentDatetime := time.Now()
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	currentDatetime := time.Now().In(loc)
 
 	duration := target.Sub(currentDatetime)
 
@@ -631,7 +638,7 @@ func StartExamStudent(c *gin.Context) {
 	activityDesc := fmt.Sprintf("Mulai ujian ID %d", a.ExamID)
 	questionID := sql.NullInt64{Int64: 0, Valid: false}
 
-	_, err2 := config.DB.Exec(logQuery, a.Nim, a.ExamID, questionID, "finish", activityDesc)
+	_, err2 := config.DB.Exec(logQuery, a.Nim, a.ExamID, questionID, "finish", activityDesc, currentDatetime.In(loc))
 
 	if err2 != nil {
 		log.Printf("Logging activity error: %v", err)
@@ -733,7 +740,7 @@ func EndExamStudent(c *gin.Context) {
 	activityDesc := fmt.Sprintf("Selesai ujian ID %d", a.ExamID)
 	questionID := sql.NullInt64{Int64: 0, Valid: false}
 
-	_, err2 := config.DB.Exec(logQuery, a.Nim, a.ExamID, questionID, "finish", activityDesc)
+	_, err2 := config.DB.Exec(logQuery, a.Nim, a.ExamID, questionID, "finish", activityDesc, currentDatetime.In(loc))
 
 	if err2 != nil {
 		log.Printf("Logging activity error: %v", err)
