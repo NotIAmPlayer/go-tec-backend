@@ -620,7 +620,7 @@ func StartExamStudent(c *gin.Context) {
 	}
 
 	query2 := "UPDATE ujian_ikut SET waktuMulai = ?, statusPengerjaan = ? WHERE nim = ? AND idUjian = ?"
-	_, err = config.DB.Exec(query2, currentDatetime.Format("2006-01-02 15:04:05"), "selesai", a.Nim, a.ExamID)
+	_, err = config.DB.Exec(query2, currentDatetime.Format("2006-01-02 15:04:05"), "mengerjakan", a.Nim, a.ExamID)
 
 	if err != nil {
 		log.Printf("Starting exam error: %v", err)
