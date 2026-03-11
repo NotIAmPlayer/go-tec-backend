@@ -63,7 +63,7 @@ func GetUpcomingExams(c *gin.Context) {
 	rows, err := config.DB.Query(query, userID)
 	if err != nil {
 		log.Printf("Get multiple exams (student) error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "500 - Internal Server Error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "500 - Internal server error"})
 		return
 	}
 	defer rows.Close()
@@ -133,7 +133,7 @@ func GetOfflineExamsForStudent(c *gin.Context) {
 	rows, err := config.DB.Query(query, userID)
 	if err != nil {
 		log.Printf("Error fetching offline exams for student (%s): %v", userID, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "500 - Internal Server Error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "500 - Internal server error"})
 		return
 	}
 	defer rows.Close()
@@ -316,7 +316,7 @@ func GetExamQuestions(c *gin.Context) {
 	if err != nil {
 		log.Printf("Get exam questions (student) error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "500 - Internal Server Error",
+			"message": "500 - Internal server error",
 		})
 		return
 	}
@@ -330,7 +330,7 @@ func GetExamQuestions(c *gin.Context) {
 		if err := rows.Scan(&q.QuestionID, &q.BatchID, &q.BatchType, &q.BatchText, &q.QuestionText, &q.ChoiceA, &q.ChoiceB, &q.ChoiceC, &q.ChoiceD, &audio); err != nil {
 			log.Printf("Get exam questions (student) error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "500 - Internal Server Error",
+				"message": "500 - Internal server error",
 			})
 			return
 		}
@@ -402,7 +402,7 @@ func AnswerExamQuestions(c *gin.Context) {
 			// something went wrong
 			log.Printf("Get student answer error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "500 - Internal Server Error",
+				"message": "500 - Internal server error",
 			})
 			return
 		}
@@ -517,7 +517,7 @@ func GetExamAnswers(c *gin.Context) {
 	if err != nil {
 		log.Printf("Get multiple answers error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "500 - Internal Server Error",
+			"message": "500 - Internal server error",
 		})
 		return
 	}
@@ -528,7 +528,7 @@ func GetExamAnswers(c *gin.Context) {
 		if err := rows.Scan(&a.QuestionID, &a.Answer, &a.TipeBatch); err != nil {
 			log.Printf("Get multiple answers error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "500 - Internal Server Error",
+				"message": "500 - Internal server error",
 			})
 			return
 		}
@@ -582,7 +582,7 @@ func StartExamStudent(c *gin.Context) {
 		} else {
 			log.Printf("Get exam error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "500 - Internal Server Error",
+				"message": "500 - Internal server error",
 			})
 		}
 		return
@@ -599,7 +599,7 @@ func StartExamStudent(c *gin.Context) {
 		if err != nil {
 			log.Printf("Parse end datetime error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "500 - Internal Server Error",
+				"message": "500 - Internal server error",
 			})
 			return
 		}
@@ -690,7 +690,7 @@ func EndExamStudent(c *gin.Context) {
 		} else {
 			log.Printf("Get exam error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "500 - Internal Server Error",
+				"message": "500 - Internal server error",
 			})
 		}
 		return
