@@ -69,7 +69,8 @@ func GetScoresByExam(c *gin.Context) {
 	fmt.Println("Handler GetScoresByExam called with examID =", examID)
 
 	query := `
-        SELECT m.nim, m.namaMhs AS name, es.listening, es.grammar, es.reading, es.skor
+		-- distinct so that only one result appears
+        SELECT DISTINCT m.nim, m.namaMhs AS name, es.listening, es.grammar, es.reading, es.skor
         FROM hasil_ujian es
         JOIN mahasiswa m ON es.nim = m.nim
         WHERE es.idUjian = ?
