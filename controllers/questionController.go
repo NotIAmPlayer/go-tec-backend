@@ -7,11 +7,37 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+var allowedAudioExtensions = map[string]bool{
+	".mp3":  true,
+	".wav":  true,
+	".ogg":  true,
+	".aac":  true,
+	".flac": true,
+	".m4a":  true,
+	".wma":  true,
+	".opus": true,
+}
+
+var allowedAudioMIMETypes = map[string]bool{
+	"audio/mpeg":      true, // .mp3
+	"audio/wav":       true, // .wav
+	"audio/wave":      true, // .wav (alternate)
+	"audio/ogg":       true, // .ogg
+	"audio/aac":       true, // .aac
+	"audio/flac":      true, // .flac
+	"audio/mp4":       true, // .m4a
+	"audio/x-m4a":     true, // .m4a (alternate)
+	"audio/webm":      true, // .webm audio
+	"audio/opus":      true, // .opus
+	"application/ogg": true, // .ogg (some detectors)
+}
 
 type Question struct {
 	QuestionID   int    `json:"question_id"`
@@ -314,13 +340,49 @@ func CreateQuestionBatch(c *gin.Context) {
 		}
 
 		// Save file to the uploads directory
-		dest := "uploads/" + file.Filename
+		newFilename := time.Now().Format("20060102150405") + "_" + file.Filename
+		dest := filepath.Join("uploads", newFilename)
 
 		// Limit file size to 50MB
 		if file.Size > 50*1024*1024 {
 			log.Printf("File size error: %s exceeds 50MB limit", file.Filename)
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "400 - File size exceeds 50MB limit",
+			})
+			return
+		}
+
+		// check if the audio file has the proper file extension
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		if !allowedAudioExtensions[ext] {
+			log.Printf("File extension error: %s is not an allowed audio extension", file.Filename)
+			c.JSON(http.StatusUnsupportedMediaType, gin.H{
+				"message": "415 - Only audio files are allowed (.mp3, .wav, .ogg, .aac, .flac, .m4a, .wma, .opus)",
+			})
+			return
+		}
+
+		src, err := file.Open()
+		if err != nil {
+			log.Printf("File open error: %s - %v", file.Filename, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "500 - Failed to read file"})
+			return
+		}
+		defer src.Close()
+
+		buffer := make([]byte, 512)
+		_, err = src.Read(buffer)
+		if err != nil {
+			log.Printf("File read error: %s - %v", file.Filename, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "500 - Failed to detect file type"})
+			return
+		}
+
+		detectedMIME := http.DetectContentType(buffer)
+		if !allowedAudioMIMETypes[detectedMIME] {
+			log.Printf("MIME type error: %s detected as %s, not an audio file", file.Filename, detectedMIME)
+			c.JSON(http.StatusUnsupportedMediaType, gin.H{
+				"message": "415 - File content is not a valid audio format (detected: " + detectedMIME + ")",
 			})
 			return
 		}
